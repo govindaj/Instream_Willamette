@@ -1,0 +1,2513 @@
+---
+title: "Willamette River Instream Surrogate TSS-THg Analysis"
+author: "Janani Govindan, Dan Sobota, and Kevin Brannan"
+date: "July 3, 2019"
+output:
+  word_document:
+    fig_caption: yes
+    reference_docx: C://Documents/Report_Template.docx
+    toc: yes
+  html_document:
+    mode: selfcontained
+    number_sections: yes
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+always_allow_html: yes
+  
+---
+
+
+```{r libraries, include=FALSE}
+
+#Load Packages
+
+library(devtools)
+library(rmarkdown)
+library(tidyr)
+library(knitr) 
+options(digits=2)
+
+library(dplyr)
+library(SSN)
+library(sjmisc)
+
+library(ggplot2)
+
+library(kableExtra)
+
+library(pander)
+
+require(yaml)
+
+require(latexpdf)
+
+require(xtable)
+
+require(ggpubr)
+
+require(rsq)
+
+require(captioner)
+
+require(lme4)
+
+require(tidyverse)
+
+require(lubridate)
+
+require(sp)
+
+require(psych)
+
+library(broom)
+
+require(broom.mixed)
+
+require(jtools)
+
+require(lmerTest)
+
+require (MASS)
+#Incompatibilty with the 64 bit version
+#install.pandoc()
+
+#rmarkdown::pandoc_version()
+
+#-to get an R-Squared value for the mixed-effects linear model
+library(MuMIn)
+
+#Instt
+
+panderOptions('table.alignment.default', function(summary_TSS_THG)
+    ifelse(sapply(summary_TSS_THG, is.numeric), 'right', 'left'))
+panderOptions('table.split.table', Inf)
+panderOptions('big.mark', ",")
+panderOptions('keep.trailing.zeros', TRUE)
+
+figs<-captioner(prefix="\nFigure")
+tbls<-captioner(prefix="Table")
+
+
+
+```
+
+
+
+```{r captioner, include= FALSE, results='hide'}
+
+figs(name="LenFreq1","Boxplot of Untransformed TSS (mg/L) and THg Concentrations (ng/L) from the Original Dataset of 187 Surrogate Pairs. The Red line represents an Instream Target Mercury Concentration of 0.14 ng/L.")
+figs(name="LenFreq2","Dry and Wet Season Scatterplot of Untransformed TSS (mg/L) and THg Concentrations (ng/L) from the Original Dataset of 187 Surrogate Pairs.")
+figs(name="LenFreq3","Willamette River Basin Instream Surrogate TSS-THg Sampling Sites Map.")
+figs(name="LenFreq4"," Boxplot of Untransformed TSS (mg/L) and THg Concentrations (ng/L) based on the Dataset of 63 Surrogate Pairs. The Red line represents an Instream Target Mercury Concentration of 0.14 ng/L.")
+figs(name="LenFreq5","Scatterplot of Untransformed TSS (mg/L) and THg Concentrations (ng/L) according to HUC 8 Subbasin based on the Dataset of 63 Surrogate Pairs.")
+figs(name="LenFreq6","Scatterplot of TSS (mg/L) and THg Concentrations (ng/L) for each individual HUC 8 Subbasin based on the Dataset of 63 Surrogate Pairs.")
+figs(name="LenFreq7","Dry and Wet Season Scatterplot of Untransformed TSS (mg/L) and THg Concentrations (ng/L) based on the Dataset of 63 Surrogate Pairs.")
+figs(name="LenFreq8","Box-cox Transformation of Dependent Variable of THg concentrations")
+figs(name="LenFreq9","OLS Model Scatterplot for all HUC 8 Subbasins based on the Dataset of 63 Surrogate Pairs.")
+figs(name="LenFreq10","95 Percent Prediction Interval (fixed effect only) for LME Model Regression with Seasons as an Additional Fixed Effect and with Sites as a Random Effect for the 63 Instream THg-TSS surrogate sample pairs.")
+figs(name="LenFreq11","95 Percent Prediction Interval (fixed effect only) for LME Model Regression with Sites as a Random Effect for the 63 Instream THg-TSS surrogate sample pairs.")
+figs(name="LenFreq12","Diagnostic Plot for OLS Model for all 63 Instream THg-TSS Surrogate Samples. The residuals versus fitted values plot checks for the assumptions of linearity. The Q-Q plot checks for the assumptions of normality, while the scale-location plot checks for homoscedasticity (equal variance). The Cook’s Distance plot (residuals versus leverage) helps identify any significant outliers that can influence the regression coefficients of the OLS model.")
+figs(name="LenFreq13","Diagnostic Plot for LME Model with Seasons as an Additional Fixed Effect and Sites a Random Effect for all 63 Instream THg-TSS Surrogate Samples. The residuals versus fitted values plot checks for the assumptions of linearity. The Q-Q plot checks for the assumptions of normality, while the scale-location plot checks for homoscedasticity (equal variance). The Cook’s Distance plot (residuals versus leverage) helps identify any significant outliers that can influence the regression coefficients of the LME model.")
+figs(name="LenFreq14","Diagnostic Plot for LME Model with Sites as a Random Effect for all 63 Instream THg-TSS Surrogate Samples. The residuals versus fitted values plot checks for the assumptions of linearity. The Q-Q plot checks for the assumptions of normality, while the scale-location plot checks for homoscedasticity (equal variance). The Cook’s Distance plot (residuals versus leverage) helps identify any significant outliers that can influence the regression coefficients of the LME model.")
+figs(name="LenFreq15","Empirical Culmulative Distribution of TSS Concentrations across all sites.")
+figs(name="LenFreq16","Empirical Cumulative Distribution of TSS Concentrations with Reductions in the Upper Quartile Range (75th percentile) of TSS Concentrations across all sites. The 0% Reduction line represents the cdf plot of current TSS concentrations (mg/L) that were accounted for within the study (same as Figure 15).")
+
+tbls(name="LenFreq1","Full TSS-THg Dataset Provided by TetraTech for the Instream Willamette River Basin Surrogate Analysis")
+tbls(name="LenFreq2","Sampling Sites for the Instream Willamette River TSS-THg Surrogate Analysis")
+tbls(name="LenFreq3","Summary Statistics for Untransformed TSS (mg/L) and THg Concentrations (ng/L) across all HUC 8 Subbasins")
+tbls(name="LenFreq4","Summary Statistics for Untransformed THg Concentrations (mg/L) for each individual HUC 8 Subbasin")
+tbls(name="LenFreq5","Summary Statistics for Untransformed TSS Concentrations (ng/L) for each individual HUC 8 Subbasin")
+tbls(name="LenFreq6","OLS Model Summary Results for all HUC 8 Subbasins")
+tbls(name="LenFreq7","LME Model Summary Results for all HUC 8 Subbasins with Sites as a Random Effect and Dry/Wet Seasons as a Fixed Effect")
+tbls(name="LenFreq8","LME Model Summary Results for all HUC 8 Subbasins with Sites as a Random Effect but without the Fixed Effect of Dry/Wet Seasons")
+tbls(name="LenFreq9","R-Squared Results for All Regression Models")
+tbls(name="LenFreq10","Estimated Concentrations of TSS based on the LME Model Equation (the range of THg Concentration values were based on summary results)")
+tbls(name="LenFreq11","Estimated Percent Reduction of THg Concentrations based on the LME Model")
+tbls(name="LenFreq12","Schedule for interim goals for reducing TSS concentrations")
+```
+
+
+
+```{r import ssn object, include=FALSE}
+
+#Import Spatial Stream Network (SSN) file from the .ssn directory and create a SSN object----
+
+ssn_Willamette<-importSSN("C:/Users/jgovind/Documents/Instream_data_THg_TSS/LSN_sites_fixed_adv/lsn.ssn",predpts=NULL, o.write=FALSE)
+
+#E:\LSN_sites_fixed_adv\lsn.ssn
+
+```
+```{r distance matrices, include=FALSE}
+#Create Distance Matrices for getting the network distances between all pairs of obs.points----
+
+createDistMat(ssn_Willamette, predpts=NULL, o.write=TRUE,
+              amongpreds=FALSE)
+
+#Access the stream distance matrix after it was created
+
+obs_distance<-getStreamDistMat(ssn_Willamette)
+
+obs_distance
+
+str(obs_distance)
+
+#Get the total in-stream distance (by taking the asymmetric matrix + it's transpose)----
+
+str_obs_dist3<-obs_distance$dist.net3 + t(obs_distance$dist.net3)
+
+str_obs_dist3
+```
+
+
+
+```{r summary table, include=FALSE}
+
+#Convert S4 object (ssn_Willamette) to a data frame using in-built function in SSN package----
+
+SSN1<-getSSNdata.frame(ssn_Willamette)
+
+# knitr::kable(SSN1[6:7],
+#              row.names=FALSE,
+#              col.names=c("IS_TSS_mg_","IS_THG_ng_"))
+
+
+Log_TSS<-as.numeric(log10(SSN1$IS_TSS_mg_))
+
+Log_THG<-as.numeric(log10(SSN1$IS_THG_ng_))
+
+summary_TSS_THG<-as.data.frame(summary(SSN1[6:7]))
+
+
+#Make the column into numeric for lat and long-----
+SSN1$IS_LAT<-as.numeric(SSN1$IS_LAT)
+SSN1$IS_LAT<-formatC(SSN1$IS_LAT, digits=2, format = "f")
+
+SSN1$IS_LONG<-as.numeric(SSN1$IS_LONG)
+SSN1$IS_LONG<-formatC(SSN1$IS_LONG, digits = 2, format = "f")
+
+
+# kable(summary_TSS_THG) %>%
+#   kable_styling(bootstrap_options = "striped", full_width=F)
+
+#kable(summary_TSS_THG)
+
+# kable(summary_TSS_THG, caption="Figure 1: Summary Statistics for TSS and THg Concentrations",
+#       col.names=c("THg Concentrations (ng/L)", "TSS Concentrations (mg/L)"))
+
+```
+```{r table examples,echo=FALSE}
+# htmlTable(summary_TSS_THG)
+# kable(summary_TSS_THG)
+# pander(summary_TSS_THG)
+
+
+```
+
+
+
+```{r HUC 8 Analysis, echo=FALSE, include=FALSE, fig.cap = "Wet and Dry Season Plot"}
+
+#Put in the HUC 8 Codes for the Willamette Basin-----
+
+SSN1$HUC_8<-NA
+
+#make sure that the column contains only 8 digits not scientific notation----
+SSN1$HUC_8<-format(SSN1$HUC_8, digits=8)
+SSN1$IS_LAT<-format(SSN1$IS_LAT, digits=5)
+SSN1$IS_LONG<-format(SSN1$IS_LONG, digits=5)
+#Assign the HUC codes----
+
+SSN1$HUC_8[1:129]<-17090012
+SSN1$HUC_8[130:137]<-17090011
+SSN1$HUC_8[138:141]<-17090010
+SSN1$HUC_8[142:158]<-17090007
+SSN1$HUC_8[159:162]<-17090005
+SSN1$HUC_8[163:170]<-17090003
+SSN1$HUC_8[175:178]<-17090003
+SSN1$HUC_8[171:174]<-17090004
+SSN1$HUC_8[179:182]<-17090001
+SSN1$HUC_8[187:190]<-17090001
+SSN1$HUC_8[183:186]<-17090002
+
+#Remove the sample points from the tributaries along the Willamette (keep only mainstem samples) and rename dataframe----
+
+SSN1_removed<-SSN1[-c(129:132, 137:140, 158:161),]
+
+
+```
+
+
+
+```{r, include=FALSE}
+
+#Final surrogate data from Tetratech----
+final_surrogate<-read.csv("C:/Users/jgovind/Documents/final_surrogate.csv", header = TRUE)
+
+
+#remove the non-detects from the data----
+
+
+DL_final_removed<-final_surrogate[!(final_surrogate$Mercury_ng_l==20 |final_surrogate$Mercury_ng_l==30 |final_surrogate$Mercury_ng_l==40|final_surrogate$Mercury_ng_l==80|final_surrogate$Mercury_ng_l==0.2|final_surrogate$Mercury_ng_l==0.17|final_surrogate$Mercury_ng_l==0.057| final_surrogate$Mercury_ng_l==0.5|final_surrogate$Mercury_ng_l==6.5|final_surrogate$Mercury_ng_l==0.05|final_surrogate$Mercury_ng_l==2|final_surrogate$Mercury_ng_l==243|final_surrogate$Mercury_ng_l==509|final_surrogate$Mercury_ng_l==941.5),]
+
+#Split the first column into 3 seperate columns (lat, long, date)----
+
+DL_final_removed<-separate(DL_final_removed,col="LatLongDate", into=c("Lat", "Long", "Date"), sep="_")
+
+#Another way to split but without column names attributed to the split columns
+#DL_final_removed<-cbind(DL_final_removed, read.table(text=as.character(DL_final_removed$LatLongDate), sep="_")
+
+
+              
+
+#Add the detection limit to the dataset----
+
+DL_final_removed$DL_ng_L<-0.5
+
+
+
+```
+
+
+
+```{r months, seasonal, and dry and wet seasons, include=FALSE}
+
+DL_final_removed$format_date<-as.Date(DL_final_removed$Date, format= '%m/%d/%Y')
+
+DL_final_removed$Month<-month(DL_final_removed$format_date)
+
+DL_final_removed$Num_month<-as.numeric(DL_final_removed$Month)
+
+
+DL_final_removed$TSS_ng_L<-(DL_final_removed$TSS_mg_l*10^(6))
+
+DL_final_removed$THG_mg_L<-(DL_final_removed$Mercury_ng_l*10^(-6))
+
+
+
+#SSN1$season<-ifelse(SSN1$month %in% c("01,02,03,04,12"), 'wet season', ifelse(SSN1$month %in% c("05,06,07,08,09,10,11"), 'dry season','wet season'))
+
+#Make the date into dry and wet season----
+
+DL_final_removed$Season_category<-ifelse(DL_final_removed$Num_month %in% c(01,02,03,04,05,11,12), 'wet season','dry season')
+
+
+#make Num_month into a factor----
+
+DL_final_removed$Month_name<-as.factor(DL_final_removed$Num_month)
+DL_final_removed$Month_name<- NA
+DL_final_removed$Month_name[DL_final_removed$Num_month =="1"]<-"January"
+DL_final_removed$Month_name[DL_final_removed$Num_month =="2"]<-"February"
+DL_final_removed$Month_name[DL_final_removed$Num_month =="3"]<-"March"
+DL_final_removed$Month_name[DL_final_removed$Num_month =="4"]<-"April"
+DL_final_removed$Month_name[DL_final_removed$Num_month =="5"]<-"May"
+DL_final_removed$Month_name[DL_final_removed$Num_month =="6"]<-"June"
+DL_final_removed$Month_name[DL_final_removed$Num_month =="7"]<-"July"
+DL_final_removed$Month_name[DL_final_removed$Num_month =="8"]<-"August"
+DL_final_removed$Month_name[DL_final_removed$Num_month =="9"]<-"September"
+DL_final_removed$Month_name[DL_final_removed$Num_month =="10"]<-"October"
+DL_final_removed$Month_name[DL_final_removed$Num_month =="11"]<-"November"
+DL_final_removed$Month_name[DL_final_removed$Num_month =="12"]<-"December"
+
+#Make into seasons----
+DL_final_removed$Seasons<-ifelse(DL_final_removed$Num_month %in% c(12,01,02), 'Winter',
+                              ifelse(DL_final_removed$Num_month %in% c(03,04,05), 'Spring',
+                                  ifelse(DL_final_removed$Num_month %in% c(06,07,08), 'Summer','Fall')))
+
+
+#Make the column into numeric for lat and long-----
+DL_final_removed$Lat<-as.numeric(DL_final_removed$Lat)
+DL_final_removed$Lat<-formatC(DL_final_removed$Lat, digits=2, format = "f")
+
+DL_final_removed$Long<-as.numeric(DL_final_removed$Long)
+DL_final_removed$Long<-formatC(DL_final_removed$Long, digits=2, format="f")
+
+
+
+#Match up the HUC 8 Codes from one data frame to another (lookup table)----
+
+#DL_final_removed$HUC_8_Codes<-left_join(SSN1, DL_final_removed, by=c("IS_LAT"= "Lat" , "IS_LONG" = "Long"))
+
+# #match values example (like Vlookup)----
+DL_final_removed$HUC_8<-SSN1$HUC_8[match(interaction(DL_final_removed$Lat, DL_final_removed$Long), interaction(SSN1$IS_LAT, SSN1$IS_LONG))]
+
+
+
+```
+
+
+
+
+```{r, include=FALSE}
+#remove the outliers (Portland Harbor)----
+
+#Point(y(THg) = 187 ng/L , x(TSS) = 4.4 mg/L ))
+
+DL_final_removed<-DL_final_removed[-c(61),]
+
+#Point(y(THg) = 25 ng/L , x(TSS) = 2.5 mg/L =))
+
+DL_final_removed<-DL_final_removed[-c(60),]
+
+#Transform variables logarithmically----
+
+DL_final_removed$log_fin_THG<-log10(DL_final_removed$Mercury_ng_l)
+
+DL_final_removed$log_fin_TSS<-log10(DL_final_removed$TSS_mg_l)
+
+OLS_fin_surrogate<-lm(DL_final_removed$log_fin_THG~DL_final_removed$log_fin_TSS, DL_final_removed)
+
+summary(OLS_fin_surrogate)
+
+
+
+```
+
+
+
+```{r, include=FALSE}
+
+#Boxplots of TSS (mg/L) and THg (ng/L) concentrations----
+
+#make boxplots for the TSS concentrations----
+par(mfrow=c(1,2))
+boxplot(DL_final_removed$TSS_mg_l, ylab="Untransformed TSS Concentrations (mg/L)")
+boxplot(DL_final_removed$Mercury_ng_l, ylim=c(0, 6), ylab="Untransformed THg Concentrations (ng/L)")
+abline(h=0.14, col="red")
+
+
+
+
+
+
+```
+
+
+
+```{r, include=FALSE}
+#Summary Statistics table for TSS-THg Concentrations across all HUC 8's and individual HUC 8----
+
+
+#Setup to make tables for the summary results of TSS and THg concentrations (mg/L)----
+
+Summary_fin<-cbind(summary(DL_final_removed$TSS_mg_l), summary(DL_final_removed$Mercury_ng_l))
+
+Summary_fin<-as.data.frame(Summary_fin)
+Summary_fin
+
+colnames(Summary_fin)<-c("TSS Concentrations (mg/L)", "THg Concentrations (ng/L)")
+
+#Summary by groups of HUC 8-----
+
+knitr::kable(Summary_fin, padding=2, digits=5,format="html", row.names =TRUE, caption = "Summary Statistics for TSS and THg Concentrations (mg/L)")
+
+          
+
+
+
+```
+
+
+
+```{r, include=FALSE}
+
+#ggplot of months----
+
+Months_plot<-ggplot(DL_final_removed, aes(x=DL_final_removed$TSS_mg_l, y=DL_final_removed$Mercury_ng_l))+
+  geom_point(aes(colour = DL_final_removed$Month_name, size=2)) +
+  guides(size=FALSE)+
+  scale_fill_manual("Interval", values=c("grey33"))+
+  xlab("TSS Concentrations (mg/L)")+ 
+  ylab("THg Concentrations (ng/L)")+
+  labs(color="Months")
+
+Months_plot
+```
+
+
+
+```{r, include=FALSE}
+#ggplot of seasons----
+
+Seasons_plot<-ggplot(DL_final_removed, aes(x=DL_final_removed$TSS_mg_l, y=DL_final_removed$Mercury_ng_l))+
+  geom_point(aes(colour = DL_final_removed$Seasons, size=2)) +
+  guides(size=FALSE)+
+  scale_fill_manual("Interval", values=c("grey33"))+
+  xlab("TSS Concentrations (mg/L)")+ 
+  ylab("THg Concentrations (ng/L)")+
+  labs(color="Seasons")
+
+Seasons_plot
+
+```
+
+
+
+```{r, include=FALSE}
+
+#ggplot of dry and wet seasons (Wet Season: Nov--May, dry season: Jun-Oct)----
+
+Dry_Wet_Seasons_plot<-ggplot(DL_final_removed, aes(x=DL_final_removed$TSS_mg_l, y=DL_final_removed$Mercury_ng_l))+
+  geom_point(aes(colour = DL_final_removed$Season_category, size=2)) +
+  guides(size=FALSE)+
+  scale_fill_manual("Interval", values=c("grey33"))+
+  xlab("TSS Concentrations (mg/L)")+ 
+  ylab("THg Concentrations (ng/L)")+
+  labs(color="Seasons")
+
+Dry_Wet_Seasons_plot
+
+```
+
+
+
+```{r, include=FALSE}
+
+#Table for entire dataset (Full dataset of 187 samples from Tetratech)----
+
+
+
+Entire_dataset_surrogate<-read.csv("C:/Users/jgovind/Documents/Table_for_full_dataset.csv", header = TRUE)
+colnames(Entire_dataset_surrogate)<-c("Samples", "Sampling Date", "THg (ng/L)", "TSS (mg/L)", "THg non-detect (ND)","MDL of THg (ng/L)", "Excluded from Analysis", "Reasons Excluded")
+
+
+
+```
+
+
+
+```{r, include=FALSE}
+
+# Entire_dataset_surrogate$log10_THg<-log10(Entire_dataset_surrogate$`THg (ng/L)`)
+
+log_trans_THg_entire<-log10(Entire_dataset_surrogate$`THg (ng/L)`)
+
+
+#ggplot for scatterplot of TSS and THg concentrations for the original dataset (187 samples)
+
+#Create dataframe for plots of the entire dataset (187 Surrogate pairs)-----
+
+plot_entire_data_df<-Entire_dataset_surrogate
+
+plot_entire_data_df$format_date<-as.Date(plot_entire_data_df$`Sampling Date`, format= '%m/%d/%Y')
+
+plot_entire_data_df$Month<-as.numeric(month(plot_entire_data_df$format_date))
+
+plot_entire_data_df$Season_category<-ifelse(plot_entire_data_df$Month %in% c(01,02,03,04,05,11,12), 'wet season','dry season')
+
+
+```
+
+
+
+```{r, include=FALSE}
+
+#Scatterplot of all the TSS-THg surrogate pairs from the original dataset of 187 surrogate pairs----
+
+
+
+
+D_W_Seasons_entire_data<-ggplot(plot_entire_data_df, aes(x=plot_entire_data_df$`TSS (mg/L)`, y=plot_entire_data_df$`THg (ng/L)`))+
+  geom_point(aes(shape = plot_entire_data_df$Season_category, size=2)) +
+  guides(size=FALSE)+
+  scale_fill_manual("Interval", values=c("grey33"))+
+  xlab("TSS Concentrations (mg/L)")+ 
+  ylab("THg Concentrations (ng/L)")+
+  labs(shape="Seasons")
+
+D_W_Seasons_entire_data
+
+
+```
+
+
+
+```{r, include=FALSE}
+
+#OLS Model Plot----
+
+  OLS_scatter_all<-ggplot(DL_final_removed, aes(x=DL_final_removed$TSS_mg_l,   y=DL_final_removed$Mercury_ng_l))+
+  geom_smooth(method="lm", se=FALSE, formula = y~x)+
+  geom_point(color="black")+
+  xlab("Log10 TSS Concentrations") + ylab ("Log10 THg Concentrations")+
+  scale_y_log10()+ scale_x_log10()
+  
+  
+OLS_scatter_all
+
+
+
+```
+
+
+
+
+```{r, include=FALSE}
+
+#OLS Analysis of each HUC 8----
+
+
+#Subset according to HUC_8 number----
+
+HUC_8_1<-DL_final_removed[DL_final_removed$HUC_8=="17090001",]
+HUC_8_2<-DL_final_removed[DL_final_removed$HUC_8=="17090002",]
+HUC_8_3<-DL_final_removed[DL_final_removed$HUC_8=="17090003",]
+HUC_8_4<-DL_final_removed[DL_final_removed$HUC_8=="17090004",]
+HUC_8_5<-DL_final_removed[DL_final_removed$HUC_8=="17090005",]
+HUC_8_7<-DL_final_removed[DL_final_removed$HUC_8=="17090007",]
+HUC_8_10<-DL_final_removed[DL_final_removed$HUC_8=="17090010",]
+HUC_8_11<-DL_final_removed[DL_final_removed$HUC_8=="17090011",]
+HUC_8_12<-DL_final_removed[DL_final_removed$HUC_8=="17090012",]
+
+all(is.na(HUC_8_12))
+
+#Write the DL_final_removed data frame as a .csv----
+
+write.csv(DL_final_removed, file="Surrogate_Final")
+
+#HUC 17090001- Middle Fork Willamette----
+
+#TSS and THg concentration summary
+HUC_8_1_sum_result<-cbind(summary(HUC_8_1$TSS_mg_l), summary(HUC_8_1$Mercury_ng_l))
+colnames(HUC_8_1_sum_result)<-c("TSS Concentrations (mg/L)", "THg Concentrations (ng/L")
+HUC_17090001<-HUC_8_1_sum_result
+
+OLS_1<-lm(HUC_8_1$log_fin_THG~HUC_8_1$log_fin_TSS, HUC_8_1)
+summary(OLS_1)
+
+
+#HUC 17090002- Coast Fork Willamette----
+
+#TSS and THg concentration summary
+HUC_8_2_sum_result<-cbind(summary(HUC_8_2$TSS_mg_l), summary(HUC_8_2$Mercury_ng_l))
+colnames(HUC_8_2_sum_result)<-c("TSS Concentrations (mg/L)", "THg Concentrations (ng/L")
+HUC_17090002<-HUC_8_2_sum_result
+
+#test_rbind<-rbind(HUC_8_1_sum_result, HUC_8_2_sum_result)
+
+OLS_2<-lm(HUC_8_2$log_fin_THG~HUC_8_2$log_fin_TSS, HUC_8_2)
+summary(OLS_2)
+
+
+#HUC 17090003- Upper Willamette----
+OLS_3<-lm(HUC_8_3$log_fin_THG~HUC_8_3$log_fin_TSS, HUC_8_3)
+summary(OLS_3)
+
+
+HUC_8_3_sum_result<-cbind(summary(HUC_8_3$TSS_mg_l), summary(HUC_8_3$Mercury_ng_l))
+colnames(HUC_8_3_sum_result)<-c("TSS Concentrations (mg/L)", "THg Concentrations (ng/L")
+HUC_17090003<-HUC_8_3_sum_result
+
+#HUC 17090004- McKenzie----
+OLS_4<-lm(HUC_8_4$log_fin_THG~HUC_8_4$log_fin_TSS, HUC_8_4)
+summary(OLS_4)
+
+HUC_8_4_sum_result<-cbind(summary(HUC_8_4$TSS_mg_l), summary(HUC_8_4$Mercury_ng_l))
+colnames(HUC_8_4_sum_result)<-c("TSS Concentrations (mg/L)", "THg Concentrations (ng/L")
+HUC_17090004<-HUC_8_4_sum_result
+
+
+#HUC 17090005- North Santiam----
+OLS_5<-lm(HUC_8_5$log_fin_THG~HUC_8_5$log_fin_TSS, HUC_8_5)
+summary(OLS_5)
+
+HUC_8_5_sum_result<-cbind(summary(HUC_8_5$TSS_mg_l), summary(HUC_8_5$Mercury_ng_l))
+colnames(HUC_8_5_sum_result)<-c("TSS Concentrations (mg/L)", "THg Concentrations (ng/L")
+HUC_17090005<-HUC_8_5_sum_result
+
+#HUC 17090007- Middle Willamette----
+
+OLS_7<-lm(HUC_8_7$log_fin_THG~HUC_8_7$log_fin_TSS, HUC_8_7)
+summary(OLS_7)
+
+HUC_8_7_sum_result<-cbind(summary(HUC_8_7$TSS_mg_l), summary(HUC_8_7$Mercury_ng_l))
+colnames(HUC_8_7_sum_result)<-c("TSS Concentrations (mg/L)", "THg Concentrations (ng/L")
+HUC_17090007<-HUC_8_7_sum_result
+
+#HUC 17090010- Tualatin----
+OLS_10<-lm(HUC_8_10$log_fin_THG~HUC_8_10$log_fin_TSS, HUC_8_10)
+summary(OLS_10)
+
+HUC_8_10_sum_result<-cbind(summary(HUC_8_10$TSS_mg_l), summary(HUC_8_10$Mercury_ng_l))
+colnames(HUC_8_10_sum_result)<-c("TSS Concentrations (mg/L)", "THg Concentrations (ng/L")
+HUC_17090010<-HUC_8_10_sum_result
+
+#HUC 17090011- Clackamas----
+OLS_11<-lm(HUC_8_11$log_fin_THG~HUC_8_11$log_fin_TSS, HUC_8_11)
+summary(OLS_11)
+
+HUC_8_11_sum_result<-cbind(summary(HUC_8_11$TSS_mg_l), summary(HUC_8_11$Mercury_ng_l))
+colnames(HUC_8_11_sum_result)<-c("TSS Concentrations (mg/L)", "THg Concentrations (ng/L")
+HUC_17090011<-HUC_8_11_sum_result
+
+
+#HUC 17090012-Lower Willamette----
+OLS_12<-lm(HUC_8_12$log_fin_THG~HUC_8_12$log_fin_TSS, HUC_8_12)
+summary(OLS_12)
+
+HUC_8_12_sum_result<-cbind(summary(HUC_8_12$TSS_mg_l), summary(HUC_8_12$Mercury_ng_l))
+colnames(HUC_8_12_sum_result)<-c("TSS Concentrations (mg/L)", "THg Concentrations (ng/L")
+HUC_17090012<-HUC_8_12_sum_result
+
+
+```
+
+
+
+```{r, include=FALSE}
+# ggplot looking at the TSS (mg/L) and THg Concentrations (ng/L) across all HUC 8's-----
+
+
+HUC_8_plot<-ggplot(DL_final_removed, aes(x=DL_final_removed$TSS_mg_l, y=DL_final_removed$Mercury_ng_l))+
+  geom_point(aes(colour = DL_final_removed$HUC_8, size=2)) +
+  guides(size=FALSE)+
+  scale_fill_manual("Interval", values=c("grey33"))+
+  xlab("TSS Concentrations (mg/L)")+ 
+  ylab("THg Concentrations (ng/L)")+
+  labs(color="HUC 8")
+
+HUC_8_plot
+
+
+
+
+```
+
+
+
+```{r, include=FALSE}
+#All HUC's scatterplot----
+
+
+#Remove a few of the HUC 8's from the dataset (only want those 3)
+
+DL_final_removed_3_HUC<-DL_final_removed[!(DL_final_removed$HUC_8=="17090002"|DL_final_removed$HUC_8=="17090004"|DL_final_removed$HUC_8=="17090012"|DL_final_removed$HUC_8=="17090005"|DL_final_removed$HUC_8=="17090010"|DL_final_removed$HUC_8=="17090001"),]
+  
+#OLS without only the 3 HUC's----
+
+OLS_just_3_HUC<-lm(DL_final_removed_3_HUC$log_fin_THG~DL_final_removed_3_HUC$log_fin_TSS, DL_final_removed)
+summary(OLS_just_3_HUC)
+
+
+
+
+#Log scale all HUC's-facet_wrap
+All_HUCs_log<-ggplot(DL_final_removed, aes(x =DL_final_removed$log_fin_TSS, y = DL_final_removed$log_fin_THG)) + geom_point() + facet_wrap(~DL_final_removed$HUC_8)+ xlab("log10 TSS Concentrations") +ylab("log10 THg Concentrations")
+
+
+#raw concentrations all individual HUC's-facet_wrap
+
+All_HUCs<-ggplot(DL_final_removed, aes(x =DL_final_removed$TSS_mg_l, y = DL_final_removed$Mercury_ng_l)) + geom_point() + facet_wrap(~DL_final_removed$HUC_8)+ xlab(" Raw TSS Concentrations (mg/L)") +ylab("raw THg Concentrations (ng/L)")
+
+All_HUCs
+
+
+#The 3 HUC 8's Scatterplot----
+ three_HUCs_log<-ggplot(DL_final_removed_3_HUC, aes(x =DL_final_removed_3_HUC$log_fin_TSS, y = DL_final_removed_3_HUC$log_fin_THG)) + geom_point() + facet_wrap(~DL_final_removed_3_HUC$HUC_8)+ xlab("log10 TSS Concentrations") +ylab("log10 THg Concentrations")
+
+
+
+
+```
+
+
+
+
+```{r, include=FALSE}
+
+#Write the equation for the overall OLS Model-----
+#Plug in TSS values to get THg concentrations
+
+OLS_overall<-lm(DL_final_removed$log_fin_THG~DL_final_removed$log_fin_TSS, DL_final_removed)
+
+summary(OLS_overall)
+
+par(mfrow=c(2,2))
+
+plot(OLS_overall)
+
+#OLS Parameters use as in-line code
+
+p_OLS_overall<-summary(OLS_overall)$coefficients[2,4]
+p_OLS_overall_int<-summary(OLS_overall)$coefficients[1,4]
+slope_OLS_overall<-summary(OLS_overall)$coefficients[2,1]
+intercept_OLS_overall<-summary( OLS_overall)$coefficients[1,1]
+std_error_int_overall<-summary(OLS_overall)$coefficients[1,2]
+std_error_slope_overall<-summary(OLS_overall)$coefficients[2,2]
+adj_r_OLS_overall<-summary(OLS_overall)$adj.r.squared
+summary(OLS_overall)
+
+
+
+#equation: y (log THg) = m (slope)*x + b (intercept)
+
+#y = 0.4118*(x)-0.0622
+
+#The general OLS equation:
+
+y2=5.26
+
+x2 = 10^((log10(y2)+0.0622)/(0.4118))
+
+
+
+#Find the slope, intercept, and total average slope and intercept-----
+#The average slope and intercept for each OLS Model for Upper, Middle Willamette, and Clackamas----
+#The TSS predicted values from the OLS general equation for each HUC:
+
+
+#Average, slope, and intercept for Middle Fork Willamette and TSS predicted values (HUC 17090001)----
+p_OLS_1<-summary(OLS_1)$coefficients[2,4]
+p_OLS_1_int<-summary(OLS_1)$coefficients[1,4]
+slope_OLS_1<-summary(OLS_1)$coefficients[2,1]
+intercept_OLS_1<-summary( OLS_1)$coefficients[1,1]
+std_error_int1<-summary(OLS_1)$coefficients[1,2]
+std_error_slope1<-summary(OLS_1)$coefficients[2,2]
+summary(OLS_1)
+
+x1_mfw<-10^((log10(.622) + 0.0622)/ (0.4118))
+x2_mfw<-10^((log10(2.270) + 0.0622)/ (0.4118))
+x3_mfw<-10^((log10(.968) + 0.0622)/ (0.4118))
+x4_mfw<-10^((log10(1.850) + 0.0622)/ (0.4118))
+x5_mfw<-10^((log10(1.720) + 0.0622)/ (0.4118))
+x6_mfw<-10^((log10(1.360) + 0.0622)/ (0.4118))
+x7_mfw<-10^((log10(1.100) + 0.0622)/ (0.4118))
+
+ave_mfw<-sum(x1_mfw,x2_mfw,x3_mfw,x4_mfw,x5_mfw,x6_mfw,x7_mfw)/(7)
+
+#Values of TSS ranged from 0.45 to 10.4 with the average TSS conc being 4.07 mg/L
+
+#TSS predicted values for Coast Fork Willamette  (HUC 17090002)----
+
+
+x1_cfw<-10^((log10(4.04) + 0.0622)/ (0.4118))  #42.03
+x2_cfw<-10^((log10(5.17) + 0.0622)/ (0.4118))  #76.5
+x3_cfw<-10^((log10(5.26) + 0.0622)/ (0.4118))  #80.0
+x4_cfw<-10^((log10(2.10) + 0.0622)/ (0.4118))  #8.58
+
+ave_cfw<-sum(x1_cfw,x2_cfw,x3_cfw,x4_cfw)/(4) #51.72
+
+
+#Average, slope, and intercept for Upper Willamette (HUC 17090003)----
+
+p_OLS_3<-summary(OLS_3)$coefficients[2,4]
+p_OLS_3_int<-summary(OLS_3)$coefficients[1,4]
+slope_OLS_3<-summary(OLS_3)$coefficients[2,1]
+intercept_OLS_3<-summary( OLS_3)$coefficients[1,1]
+std_error_int3<-summary(OLS_3)$coefficients[1,2]
+std_error_slope3<-summary(OLS_3)$coefficients[2,2]
+summary(OLS_3)
+
+
+x1_uw<-10^((log10(3.34) + 0.0622)/ (0.4118)) #26.5 mg/l
+x2_uw<-10^((log10(3.10) + 0.0622)/ (0.4118)) #22.1 mg/l
+x3_uw<-10^((log10(3.61) + 0.0622)/ (0.4118)) #32.0 mg/l
+x4_uw<-10^((log10(1.24) + 0.0622)/ (0.4118)) #2.39 mg/l
+x5_uw<-10^((log10(2.41) + 0.0622)/ (0.4118)) #12.0 mg/l
+x6_uw<-10^((log10(2.37) + 0.0622)/ (0.4118)) #11.5 mg/l
+x7_uw<-10^((log10(2.95) + 0.0622)/ (0.4118)) #19.6 mg/l
+x8_uw<-10^((log10(1.00) + 0.0622)/ (0.4118)) #1.42 mg/l
+x9_uw<-10^((log10(2.33) + 0.0622)/ (0.4118)) #11.04 mg/l
+x10_uw<-10^((log10(2.35) + 0.0622)/ (0.4118)) #11.3 mg/l
+x11_uw<-10^((log10(2.95) + 0.0622)/ (0.4118)) #19.6 mg/l
+x12_uw<-10^((log10(1.12) + 0.0622)/ (0.4118)) #1.9 mg/l
+
+
+ave_uw<-sum(x1_uw, x2_uw, x3_uw, x4_uw, x5_uw, x6_uw, x7_uw, x8_uw, x9_uw, x10_uw,x11_uw, x12_uw)/(12) # 14.3 mg/l
+
+
+#TSS predicted values for McKenzie (HUC 17090004)----
+
+x1_m<-10^((log10(0.847) + 0.0622)/ (0.4118))  #0.95 mg/L
+x2_m<-10^((log10(1.650) + 0.0622)/ (0.4118))  #4.78
+x3_m<-10^((log10(1.110) + 0.0622)/ (0.4118))  #1.82
+
+
+ave_m<-sum(x1_m,x2_m,x3_m)/(3) #2.52
+
+
+
+
+
+#Average, slope, and intercept for North Santiam (HUC 17090005)----
+p_OLS_5<-summary(OLS_5)$coefficients[2,4]
+p_OLS_5_int<-summary(OLS_5)$coefficients[1,4]
+slope_OLS_5<-summary(OLS_5)$coefficients[2,1]
+intercept_OLS_5<-summary( OLS_5)$coefficients[1,1]
+std_error_int5<-summary(OLS_5)$coefficients[1,2]
+std_error_slope5<-summary(OLS_5)$coefficients[2,2]
+
+summary(OLS_5)
+
+
+x1_ns<-10^((log10(.934) + 0.0622)/ (0.4118))  #1.2 mg/L
+x2_ns<-10^((log10(.959) + 0.0622)/ (0.4118))  #1.28
+x3_ns<-10^((log10(1.060) + 0.0622)/ (0.4118)) #1.63
+x4_ns<-10^((log10(0.651) + 0.0622)/ (0.4118)) # 0.50
+
+ave_ns<-sum(x1_ns,x2_ns,x3_ns,x4_ns)/(4) #1.20
+
+#Average, slope, and intercept for Middle Willamette (HUC 17090007)----
+
+p_OLS_7<-summary(OLS_7)$coefficients[2,4]
+p_OLS_7_int<-summary(OLS_7)$coefficients[1,4]
+slope_OLS_7<-summary(OLS_7)$coefficients[2,1]
+intercept_OLS_7<-summary( OLS_7)$coefficients[1,1]
+std_error_int7<-summary(OLS_7)$coefficients[1,2]
+std_error_slope7<-summary(OLS_7)$coefficients[2,2]
+summary(OLS_7)
+
+
+
+#Average, slope, and intercept for Tualatin (HUC 17090010)----
+
+p_OLS_10<-summary(OLS_10)$coefficients[2,4]
+p_OLS_10_int<-summary(OLS_10)$coefficients[1,4]
+slope_OLS_10<-summary(OLS_10)$coefficients[2,1]
+intercept_OLS_10<-summary( OLS_10)$coefficients[1,1]
+std_error_int10<-summary(OLS_10)$coefficients[1,2]
+std_error_slope10<-summary(OLS_10)$coefficients[2,2]
+
+summary(OLS_10)
+
+#Find the predicted TSS conc's using the general OLS equation for all HUC's
+
+x1_t<-10^((log10(4.01) + 0.0622)/ (0.4118))  #41.3 mg/L
+x2_t<-10^((log10(2.82) + 0.0622)/ (0.4118))  #17.6
+x3_t<-10^((log10(3.61) + 0.0622)/ (0.4118)) #32.0
+x4_t<-10^((log10(1.40) + 0.0622)/ (0.4118)) #3.21
+
+ave_ns<-sum(x1_t,x2_t,x3_t,x4_t)/(4) #23.5
+
+#Average, slope, and intercept for Clackamas (HUC 17090011)----
+
+p_OLS_11<-summary(OLS_11)$coefficients[2,4]
+p_OLS_11_int<-summary(OLS_11)$coefficients[1,4]
+slope_OLS_11<-summary(OLS_11)$coefficients[2,1]
+intercept_OLS_11<-summary( OLS_11)$coefficients[1,1]
+std_error_int11<-summary(OLS_11)$coefficients[1,2]
+std_error_slope11<-summary(OLS_11)$coefficients[2,2]
+summary(OLS_11)
+
+#Find the predicted TSS concentrations using the general OLS Model equation for Lower Willamette (HUC 17090012)----
+
+x1_lw<-10^((log10(1.79) + 0.0622)/ (0.4118))  #5.82 mg/L
+x2_lw<-10^((log10(1.24) + 0.0622)/ (0.4118))  #2.39
+x3_lw<-10^((log10(1.39) + 0.0622)/ (0.4118)) #3.15
+x4_lw<-10^((log10(0.896) + 0.0622)/ (0.4118)) #1.08
+
+ave_lw<-sum(x1_lw,x2_lw,x3_lw,x4_lw)/(4) #3.11
+
+
+#Find the average slope and average intercept from the OLS Models with the greater than 7 samples and an adjusted-squared value greater than 0.5 ----
+
+average_slope_3_HUCs<-sum( slope_OLS_3, slope_OLS_7,slope_OLS_11)/(3)
+average_slope_3_HUCs
+average_int_all_3_HUCS<-sum(intercept_OLS_3,intercept_OLS_7,intercept_OLS_11)/(3)
+average_int_all_3_HUCS
+(-0.096+-0.2306+-0.1100)/(3)
+(0.604+0.4812+0.3804)/(3)
+
+#Find the standard deviation of the ave. slope and the ave.intercept----
+
+
+# #Standard Deviation of the intercept
+# sd_intercept<-sd(c(intercept_OLS_1,intercept_OLS_3,intercept_OLS_5,intercept_OLS_7,intercept_OLS_10,intercept_OLS_11))
+
+#sd_intercept
+
+#0.07398765
+
+#Standard Error----
+
+std_error<-function(x) sd(x)/sqrt(length(x))
+
+#Standard Error of the slope and the intercept for the 3 HUC's----
+std_error_3_slopes<-std_error(c(slope_OLS_3, slope_OLS_7,slope_OLS_11))
+std_error_3_slopes
+
+#0.0647
+
+#Standard Error for the 3 HUC intercept's----
+std_error_3_intercepts<-std_error(c(intercept_OLS_3,intercept_OLS_7,intercept_OLS_11))
+std_error_3_intercepts
+
+#0.0427
+
+
+```
+
+
+
+
+```{r, include=FALSE}
+
+#Do the OLS again without the three HUC's----
+
+df_wo_three_HUCs<-DL_final_removed[(DL_final_removed$HUC_8=="17090002"|DL_final_removed$HUC_8=="17090004"|DL_final_removed$HUC_8=="17090012"|DL_final_removed$HUC_8=="17090005"|DL_final_removed$HUC_8=="17090010"|DL_final_removed$HUC_8=="17090001"),]
+  
+
+OLS_wo_three_HUCs<-lm(df_wo_three_HUCs$log_fin_THG~df_wo_three_HUCs$log_fin_TSS, df_wo_three_HUCs)
+
+summary(OLS_wo_three_HUCs)
+
+
+
+
+
+```
+
+
+
+
+```{r, include=FALSE}
+#Average Linear Equation for just the 3 HUC 8's
+
+#y(Log THg conc.) = 0.4886 * X(Log TSS conc.) + -0.1455
+
+y1=2.59
+x1 = 10^((log10(y1)+0.1455)/(0.4886))
+
+```
+
+
+
+
+```{r, include=FALSE}
+
+#Do OLS Model for both wet and dry seasons----
+
+#OLS model for wet seasons
+
+dry_seasons<-DL_final_removed[DL_final_removed$Season_category=="dry season",]
+
+  
+wet_seasons<-DL_final_removed[DL_final_removed$Season_category=="wet season",]
+
+
+
+```
+
+
+
+
+```{r, include=FALSE}
+#LMEM (Linear mixed effects model) for the wet/dry seasons and a random effect of sites----
+
+#Make a column within df with site ID based on the same latitude and longitude
+
+DL_final_removed$Site_ID <- cumsum(!duplicated(DL_final_removed[1:2]))
+
+#Make the Site_ID column a factor
+
+DL_final_removed$Site_ID<-as.factor(DL_final_removed$Site_ID)
+
+mixed.lmer_Surrogate<-lmer(log_fin_THG~log_fin_TSS + Season_category + (1|Site_ID), data=DL_final_removed)
+
+summary(mixed.lmer_Surrogate)
+
+#Use MuMIN packakage function to get conditional R-Squared Value for lme model
+MUMIN_R<-r.squaredGLMM(mixed.lmer_Surrogate)
+marginal_R<-MUMIN_R[1,1]
+Conditional_R<-MUMIN_R[1,2]
+
+#attributes(mixed.lmer_Surrogate)
+
+
+#mixed.lmer_Surrogate_2<-lmer(log_fin_THG~(log_fin_TSS + Season_category) + (1|Site_ID), data=DL_final_removed)
+
+#summary(mixed.lmer_Surrogate_2)
+
+#The marginal R-Squared is 0.47(values associated with fixed effects)
+#The conditonal R-Squared is 0.80 (fixed plus the random effects)
+```
+
+
+
+```{r, include=FALSE}
+
+#LME model with sites as a random effect (without the additional fixed effect of seasons)
+
+mixed.lmer_sites_only<-lmer(log_fin_THG~log_fin_TSS + (1|Site_ID), data=DL_final_removed)
+
+summary(mixed.lmer_sites_only)
+
+#Estimate the Marginal and Conditional R-squared value for the LME Model without seasons as an additional fixed effect
+
+MUMIN_R_sites<-r.squaredGLMM(mixed.lmer_sites_only)
+marginal_R_sites<-MUMIN_R_sites[1,1]
+Conditional_R_sites<-MUMIN_R_sites[1,2]
+
+
+
+```
+
+
+
+```{r, include=FALSE}
+#Table-For Sampling Sites and SUmmary statistics for TSS and THg---
+
+#Create a column that adds in the HUC 8 Description based on the HUC 8 Code----
+
+DL_final_removed$HUC_8_Description<-ifelse(DL_final_removed$HUC_8=="17090001","Middle Fork Willamette",
+                                      ifelse(DL_final_removed$HUC_8=="17090002", "Coast Fork Willamette",
+                                       ifelse(DL_final_removed$HUC_8=="17090003", "Upper Willamette", 
+                                        ifelse(DL_final_removed$HUC_8=="17090004", "Mckenzie",
+                                         ifelse(DL_final_removed$HUC_8=="17090005", "North Santiam",
+                                          ifelse(DL_final_removed$HUC_8=="17090007", "Middle Willamette",
+                                           ifelse(DL_final_removed$HUC_8=="17090010", "Tualatin",
+                                            ifelse(DL_final_removed$HUC_8=="17090011", "Clackamas",
+                                             ifelse(DL_final_removed$HUC_8=="17090012", "Lower Willamette",NA)))))))))
+
+
+Sampling_sites<-cbind(DL_final_removed$Lat, DL_final_removed$Long, DL_final_removed$HUC_8, DL_final_removed$HUC_8_Description)
+
+colnames(Sampling_sites)<-c("Latitude","Longitude", "HUC_8_Code", "HUC_8 Description")
+
+#Remove the duplicated study sites-want list of study sites (without repeats)
+
+Sampling_sites_all<-as.data.frame(Sampling_sites[!duplicated(Sampling_sites),])
+
+  
+#group data by HUC 8 Description
+
+Sampling_sites_ordered<-Sampling_sites_all %>%
+                          arrange(HUC_8_Code)
+
+#Add another column
+
+Sampling_sites_ordered$Number_Samples<-c("3", "4", "4", "3","4", "4","4","4", "4","4","4","4", "1", "4", "4","4","4")
+
+#re-name column name of Number_Samples
+
+colnames(Sampling_sites_ordered)[colnames(Sampling_sites_ordered)=="Number_Samples"]<-"Number of Samples"
+
+#Order the sampling sites
+
+#DL_final_removed$sites<-1:nrow(DL_final_removed)
+
+Sampling_sites_ordered$Sampling_Site<-1:nrow(Sampling_sites_ordered)
+
+Sampling_sites_ordered<-Sampling_sites_ordered[c(6,5,3,4,2,1)]
+
+colnames(Sampling_sites_ordered)<-c("Sampling Site","Number of Samples", "HUC 8 Code", "HUC 8 Description", "Longitude", "Latitude")
+
+write.csv(Sampling_sites_ordered, file = "Sampling_sites_GIS.csv")
+
+#Make a Table of sampling sites
+
+Sampling_Sites_table<-knitr::kable(Sampling_sites_ordered, padding=2, digits=5, row.names =FALSE, format ="pandoc", caption=tbls(name="LenFreq1","Sampling Sites for the Instream Willamette River TSS-THg Surrogate Analysis"))
+
+Sampling_Sites_table
+
+
+#Summary statistics for each HUC 8-----
+
+Sum_stats_DL_final_removed<-DL_final_removed%>%
+                            group_by(HUC_8)%>%
+                            summarize(min(TSS_mg_l),
+                                      quantile(TSS_mg_l,0.25),
+                                      median(TSS_mg_l),
+                                      mean(TSS_mg_l),
+                                      quantile(TSS_mg_l, 0.75),
+                                      max(TSS_mg_l),
+                                      min(Mercury_ng_l),
+                                      quantile(Mercury_ng_l,0.25),
+                                      median(Mercury_ng_l),
+                                      mean(Mercury_ng_l),
+                                      quantile(Mercury_ng_l, 0.75),
+                                      max(Mercury_ng_l))
+
+#The Summary Stats for Mercury per HUC 8
+Sum_stats_DL_final_rem_THg<-DL_final_removed%>%
+                            group_by(HUC_8)%>%
+                            summarize(min(Mercury_ng_l),
+                                      quantile(Mercury_ng_l,0.25),
+                                      median(Mercury_ng_l),
+                                      mean(Mercury_ng_l),
+                                      quantile(Mercury_ng_l, 0.75),
+                                      max(Mercury_ng_l))
+
+
+#The Summary Stats for TSS per HUC 8
+Sum_stats_DL_final_rem_TSS<-DL_final_removed%>%
+                            group_by(HUC_8)%>%
+                            summarize(min(TSS_mg_l),
+                                      quantile(TSS_mg_l,0.25),
+                                      median(TSS_mg_l),
+                                      mean(TSS_mg_l),
+                                      quantile(TSS_mg_l, 0.75),
+                                      max(TSS_mg_l))
+
+
+
+
+
+
+#Summary Stats kable for mercury table----
+
+
+kable_sum_stats_THg<-kable(Sum_stats_DL_final_rem_THg, col.names = c("HUC 8 Code", "Min.", "1st Qu.", "Median", "Mean","3rd Qu.", "Max."), caption=tbls(name="LenFreq2","Summary Statistics for Untransformed THg Concentrations (ng/L) across all HUC 8's")) 
+
+kable_sum_stats_THg
+
+
+
+#Summary Stats kable for TSS Table-----
+
+
+kable_sum_stats_THg<-kable(Sum_stats_DL_final_rem_TSS, col.names = c("HUC 8 Code", "Min.", "1st Qu.", "Median", "Mean","3rd Qu.", "Max."), caption=tbls(name="LenFreq2","Summary Statistics for Untransformed TSS (mg/L) and THg Concentrations (ng/L) across all HUC 8's")) 
+
+kable_sum_stats_THg
+
+
+
+
+
+
+# kable_sum_stats_2<-kable(Sum_stats_DL_final_rem_THg, col.names = c("HUC 8 Code", "Min.", "1st Qu.", "Median", "Mean","3rd Qu.", "Max.","Min.", "1st Qu.", "Median", "Mean", "3rd Qu.", "Max"), caption=tbls(name="LenFreq2","Summary Statistics for Untransformed TSS (mg/L) and THg Concentrations (ng/L) across all HUC 8's")) 
+
+
+#Make summary stats into Kable table----                              
+
+kable_sum_stats<-kable(Sum_stats_DL_final_removed, col.names = c("HUC 8 Code", "Min.", "1st Qu.", "Median", "Mean","3rd Qu.", "Max.","Min.", "1st Qu.", "Median", "Mean", "3rd Qu.", "Max"), caption=tbls(name="LenFreq2","Summary Statistics for Untransformed TSS (mg/L) and THg Concentrations (ng/L) across all HUC 8's")) %>%
+add_header_above(c("", "TSS Concentrations (mg/L)"=6, "THg Concentrations(ng/L)"=6)) %>%
+kable_styling(full_width = T) %>%
+column_spec(1, width="8cm")
+
+kable_sum_stats_2<-kable(Sum_stats_DL_final_removed, col.names = c("HUC 8 Code", "Min.", "1st Qu.", "Median", "Mean","3rd Qu.", "Max.","Min.", "1st Qu.", "Median", "Mean", "3rd Qu.", "Max"), caption=tbls(name="LenFreq2","Summary Statistics for Untransformed TSS (mg/L) and THg Concentrations (ng/L) across all HUC 8's")) 
+
+kable_sum_stats_2
+
+#Write as a .csv to add column headers
+
+write.csv(Sum_stats_DL_final_removed, file="Sum_Stats_Across_All_HUCs.csv")
+
+
+#Bring back the .csv table as an object
+
+
+
+Sum_stats_All_HUCs<-read.csv("C:/Users/jgovind/Documents/Sum_Stats_Across_All_HUCs.csv", header = TRUE)
+
+kable_sum_stats_2<-kable(Sum_stats_All_HUCs,caption=tbls(name="LenFreq2","Summary Statistics for Untransformed TSS (mg/L) and THg Concentrations (ng/L) across all HUC 8's")) 
+
+kable_sum_stats_2 
+
+
+
+
+
+```
+
+
+
+```{r, include=FALSE}
+#Make a table for all the OLS Results----
+
+#make a list
+OLS_gen_model<-list()
+
+OLS_gen_model$OLS_overall_total<-OLS_overall
+
+attributes(OLS_overall)
+
+df_overall_OLS<-do.call(cbind, lapply(OLS_gen_model, function(z) summary(z)$coefficients [1:2,]))
+
+df_overall_OLS
+```
+
+
+
+```{r, include=FALSE}
+#Make a table for the OLS model with seasons (dry/wet) as an additional fixed effect----
+
+OLS_with_seasons<-list()
+
+OLS_seasons<-lm(log_fin_THG~log_fin_TSS + Season_category, DL_final_removed)
+
+OLS_with_seasons$OLS_seasons_total<-OLS_seasons
+
+attributes(OLS_seasons)
+
+df_seasons_OLS<-do.call(cbind, lapply(OLS_with_seasons,function(z) summary(z)$coefficients [1:2,]))
+
+df_seasons_OLS
+
+
+#Coefficients to be used for the report's in-line code
+
+
+p_OLS_seasons_overall<-summary(OLS_seasons)$coefficients[2,4]
+p_OLS_seasons_overall_int<-summary(OLS_seasons)$coefficients[1,4]
+slope_OLS_seasons_overall<-summary(OLS_seasons)$coefficients[2,1]
+intercept_OLS_seasons_overall<-summary( OLS_seasons)$coefficients[1,1]
+std_error_int_seasons_overall<-summary(OLS_seasons)$coefficients[1,2]
+std_error_slope_seasons_overall<-summary(OLS_seasons)$coefficients[2,2]
+adj_r_OLS_seasons_overall<-summary(OLS_seasons)$adj.r.squared
+summary(OLS_seasons)
+
+
+
+```
+
+
+
+```{r, include=FALSE}
+#Make a table for all three selected OLS Models and the average slope and intercept----
+
+
+HUC_kable_3<-knitr::kable(coefficients(summary(OLS_3, padding=2, digits=5, row.names =FALSE, format ="pandoc", caption=tbls(name="LenFreq2", caption = "Summary Results for OLS Model including all HUC 8 Samples)"))))
+
+HUC_kable_7<-knitr::kable(coefficients(summary(OLS_7, padding=2, digits=5, row.names =FALSE, format ="pandoc", caption=tbls(name="LenFreq2", caption = "Summary Results for OLS Model including all HUC 8 Samples)"))))
+
+knitr::kable(coefficients(summary(OLS_11, padding=2, digits=5, row.names =FALSE, format ="pandoc", caption=tbls(name="LenFreq2", caption = "Summary Results for OLS Model including all HUC 8 Samples)"))))
+
+
+#re-name Linear model name to put into a list to later make a newly-created data frame for the kable table----
+
+models<- list()
+
+models$HUC_model_17090003<-OLS_3
+models$HUC_model_17090007<-OLS_7
+models$HUC_model_17090011<-OLS_11
+
+
+#round columns
+
+rounded_df_table_3_HUCs<-(lapply(models, function(y) if (is.numeric(y)) round (y,4) else y))
+
+
+#Combine the results for the intercept into a dataframe----
+
+
+ df_table_three_HUCs<-do.call(rbind, lapply(rounded_df_table_3_HUCs, function(z) summary(z)$coefficients [1:2,]))
+
+
+# knitr::kable(df_table_three_HUCs, padding=2, digits=5, row.names =TRUE, format ="pandoc", caption=tbls(name="LenFreq1", caption = "OLS Model Results for the Three Selected HUC 8's")) 
+
+#Add column header for coefficients and add in a row with the averaged parameters-----
+
+#colnames(df_table_three_HUCs)[-1]<-"Estimate"
+
+#df_table_three_HUCs[nrow(df_table_three_HUCs + 1),]
+
+# df_table_three_HUCs[nrow(df_table_three_HUCs)+1,]<-NA
+
+#Convert df into matrix to change column header for first column
+
+matrix_df_table_3_HUCs<-as.matrix(df_table_three_HUCs)
+
+
+#Add two more rows to the matrix
+matrix_df_table_3_HUCs<-rbind(matrix_df_table_3_HUCs, c("","","",""))
+matrix_df_table_3_HUCs<-rbind(matrix_df_table_3_HUCs, c(NA,NA,NA,NA))
+matrix_df_table_3_HUCs<-rbind(matrix_df_table_3_HUCs, c(NA,NA,NA,NA))
+
+#Fill in values for the table
+
+matrix_df_table_3_HUCs[c(8),1]<--0.1455
+matrix_df_table_3_HUCs[c(9),1]<--0.4886
+matrix_df_table_3_HUCs[c(8),2]<-0.04270
+matrix_df_table_3_HUCs[c(9),2]<-0.06470
+matrix_df_table_3_HUCs[c(7),1]<-""
+matrix_df_table_3_HUCs[c(7),2]<-""
+matrix_df_table_3_HUCs[c(7),3]<-""
+matrix_df_table_3_HUCs[c(7),4]<-""
+#Change the row name in column 0
+
+rownames(matrix_df_table_3_HUCs)[1]<-"HUC 170900003 Intercept"
+rownames(matrix_df_table_3_HUCs)[2]<-"HUC 170900003 log_TSS (slope)"
+rownames(matrix_df_table_3_HUCs)[3]<-"HUC 170900007 Intercept"
+rownames(matrix_df_table_3_HUCs)[4]<-"HUC 170900007 log_TSS (slope)"
+rownames(matrix_df_table_3_HUCs)[5]<-"HUC 170900011 Intercept"
+rownames(matrix_df_table_3_HUCs)[6]<-"HUC 170900011 log_TSS (slope)"
+rownames(matrix_df_table_3_HUCs)[7]<-"Average OLS Model Parameters of the Three HUC 8 Models"
+rownames(matrix_df_table_3_HUCs)[8]<-"Average Intercept"
+rownames(matrix_df_table_3_HUCs)[9]<-"Average Log_TSS (slope)"
+
+
+#Convert columns to numeric for matrix----
+
+mode(matrix_df_table_3_HUCs) = "numeric"
+
+
+#Round all values in the matrix
+round(matrix_df_table_3_HUCs, digits=4)
+
+
+#Convert matrix back to a data frame
+
+df_table_three_HUCs<-as.data.frame(matrix_df_table_3_HUCs)
+
+df_table_three_HUCs
+
+
+#convert to numeric rows 
+
+df_table_three_HUCs$Estimate<-as.numeric(df_table_three_HUCs$Estimate)
+df_table_three_HUCs$`Std. Error`<-as.numeric(df_table_three_HUCs$`Std. Error`)
+df_table_three_HUCs$`t value`<-as.numeric(df_table_three_HUCs$`t value`)
+df_table_three_HUCs$`Pr(>|t|)`<-as.numeric(df_table_three_HUCs$`Pr(>|t|)`)
+
+# #Take out the NA's from the 7th column
+# 
+# df_table_three_HUCs$Estimate[7]<-""
+# df_table_three_HUCs$`Std. Error`[7]<-""
+# df_table_three_HUCs$`t value`[7]<-""
+# df_table_three_HUCs$`Pr(>|t|)`[7]<-""
+
+
+knitr::kable(df_table_three_HUCs, padding=2, row.names =TRUE, format ="pandoc", caption=tbls(name="LenFreq1", caption = "OLS Model Results for the Three Selected HUC 8's")) 
+
+# kable_3_HUCs<-kable(df_table_three_HUCs, padding=2, digits=5, row.names=TRUE,format ="pandoc", caption=tbls(name="LenFreq4","OLS Model Summary Results for all Selected HUC 8's")) %>%
+# add_header_above(c("", "HUC 17090003"=4, "HUC 17090007"=4, "HUC 17090011"=4)) %>%
+# kable_styling(full_width = T) 
+
+# kable_3_HUCs
+
+
+
+```
+
+
+
+```{r, include=FALSE}
+
+#Make the Result Table for the LME Model with Seasons----
+
+
+#To make the lmem object into a df
+
+
+#test out the tidy function from the broom package-was built to handle the the lmer model
+
+df_LMEM_total<-tidy(mixed.lmer_Surrogate)
+df_LMEM_total<-as.data.frame(df_LMEM_total)
+
+
+Matrix_df_LMEM<-as.matrix(df_LMEM_total)
+
+
+#Change rownames and values within the dataframe
+#Add another row to matrix for random Effects column headers
+
+
+Matrix_df_LMEM<-rbind(Matrix_df_LMEM, c(NA,NA,NA,NA,NA,NA,NA,NA))
+#colnames(Matrix_df_LMEM)<-c("Effect", "Group/Term", "Estimate", "Std.Error", "t Value", "df", "p.value")
+
+
+#Remove the second column from the matrix
+Matrix_df_LMEM_final<-Matrix_df_LMEM[,-2]
+
+#colnames(Matrix_df_LMEM)<-c("Effect", "Group/Term", "Estimate", "Std.Error", "t Value", "df", "p.value")
+
+
+Matrix_df_LMEM_final[c(1),1]<-"Fixed"
+Matrix_df_LMEM_final[c(2),1]<-"Fixed"
+Matrix_df_LMEM_final[c(3),1]<-"Fixed"
+Matrix_df_LMEM_final[c(4),1]<-"Effect"
+Matrix_df_LMEM_final[c(5),1]<-"Random"
+Matrix_df_LMEM_final[c(6),1]<-"Random"
+Matrix_df_LMEM_final[c(4),2]<-"Group/Term"
+Matrix_df_LMEM_final[c(5),2]<-"Site ID (Intercept) Variance"
+Matrix_df_LMEM_final[c(6),2]<-" Residual Variance"
+Matrix_df_LMEM_final[c(4),3]<-"Estimate"
+Matrix_df_LMEM_final[c(5),3]<-0.0238
+Matrix_df_LMEM_final[c(6),3]<-0.0138
+Matrix_df_LMEM_final[c(4),4]<-"Std.Deviation"
+Matrix_df_LMEM_final[c(5),4]<-0.154
+Matrix_df_LMEM_final[c(6),4]<-0.118
+
+
+
+Matrix_df_LMEM_final
+
+#Convert the matrix back to the data frame
+
+df_LMEM_matrix<-as.data.frame(Matrix_df_LMEM_final)
+colnames(df_LMEM_matrix)<-c("Effect", "Group/Term", "Estimate", "Std.Error", "Statistic", "df", "p.value")
+#Make a Kable table with color(grey)----
+
+# kable(df_LMEM_matrix)%>%
+#   kable_styling(full_width = F)%>%
+#   row_spec(0, bold=T, color="black", background="grey")%>%
+#   row_spec(4, bold=T, color="black", background="grey")
+
+
+#Store variables for the LME model with seasons for the in-line code----
+
+
+p_LME_seasons<-df_LMEM_total[2,8]
+rounded_p_seasons<-signif(p_LME_seasons, digits=3)
+slope_LME_seasons<-df_LMEM_total[2,4]
+rounded_slope_fixed_seasons<-signif(slope_LME_seasons, digits=3)
+intercept_LME_seasons<-df_LMEM_total[1,4]
+rounded_int_fixed_seasons<-signif(intercept_LME_seasons, digits=3)
+MUMIN_R<-r.squaredGLMM(mixed.lmer_Surrogate)
+marginal_R<-MUMIN_R[1,1]
+Conditional_R<-MUMIN_R[1,2]
+
+
+```
+
+
+```{r, include=FALSE}
+
+#Make the Result Table for the LME Model without seasons----
+
+
+#To make the lmem object into a df
+
+
+#test out the tidy function from the broom package-was built to handle the the lmer model
+
+df_LMEM_total_sites<-tidy(mixed.lmer_sites_only)
+df_LMEM_total_LME_sites<-as.data.frame(df_LMEM_total_sites)
+
+
+Matrix_df_LMEM_sites<-as.matrix(df_LMEM_total_LME_sites)
+
+
+#Change rownames and values within the dataframe
+#Add another row to matrix for random Effects column headers
+
+
+Matrix_df_LMEM_sites<-rbind(Matrix_df_LMEM_sites, c(NA,NA,NA,NA,NA,NA,NA,NA))
+#colnames(Matrix_df_LMEM)<-c("Effect", "Group/Term", "Estimate", "Std.Error", "t Value", "df", "p.value")
+
+
+#Remove the second column from the matrix
+Matrix_df_LMEM_final_sites<-Matrix_df_LMEM_sites[,-2]
+
+#colnames(Matrix_df_LMEM)<-c("Effect", "Term", "Estimate", "Std.Error", "t Value", "df", "p.value")
+
+
+Matrix_df_LMEM_final_sites[c(1),1]<-"Fixed"
+Matrix_df_LMEM_final_sites[c(2),1]<-"Fixed"
+Matrix_df_LMEM_final_sites[c(3),1]<-"Effect"
+Matrix_df_LMEM_final_sites[c(4),1]<-"Random"
+Matrix_df_LMEM_final_sites[c(5),1]<-"Random"
+Matrix_df_LMEM_final_sites[c(3),2]<-"Group/Term"
+Matrix_df_LMEM_final_sites[c(4),2]<-"Site ID (Intercept) Variance"
+Matrix_df_LMEM_final_sites[c(5),2]<-" Residual Variance"
+Matrix_df_LMEM_final_sites[c(1),3]<--0.128
+Matrix_df_LMEM_final_sites[c(2),3]<-0.506
+Matrix_df_LMEM_final_sites[c(3),3]<-"Estimate"
+Matrix_df_LMEM_final_sites[c(3),2]<-"Estimate"
+Matrix_df_LMEM_final_sites[c(3),3]<-"Estimate"
+Matrix_df_LMEM_final_sites[c(4),3]<-0.0251
+Matrix_df_LMEM_final_sites[c(5),3]<-0.0143
+Matrix_df_LMEM_final_sites[c(3),4]<-"Std.Deviation"
+Matrix_df_LMEM_final_sites[c(4),4]<-0.158
+Matrix_df_LMEM_final_sites[c(5),4]<-0.119
+
+
+
+Matrix_df_LMEM_final_sites
+
+#Convert the matrix back to the data frame
+
+df_LMEM_matrix_sites<-as.data.frame(Matrix_df_LMEM_final_sites)
+colnames(df_LMEM_matrix_sites)<-c("Effect", "Term", "Estimate", "Std.Error", "Statistic", "df", "p.value")
+#Make a Kable table with color(grey)----
+
+# kable(df_LMEM_matrix)%>%
+#   kable_styling(full_width = F)%>%
+#   row_spec(0, bold=T, color="black", background="grey")%>%
+#   row_spec(4, bold=T, color="black", background="grey")
+
+
+#Store variables for the LME model without seasons for the in-line code----
+
+
+p_LME_sites<-df_LMEM_total_LME_sites[2,8]
+rounded_p_sites<-signif(p_LME_sites, digits=3)
+slope_LME_sites<-df_LMEM_total_LME_sites[2,4]
+rounded_slope_LME_sites<-signif(slope_LME_sites, digits=3)
+intercept_LME_sites<-df_LMEM_total_LME_sites[1,4]
+rounded_int_fixed_sites<-signif(intercept_LME_seasons, digits=3)
+MUMIN_R_sites<-r.squaredGLMM(mixed.lmer_sites_only)
+marginal_R_sites<-MUMIN_R_sites[1,1]
+Conditional_R_sites<-MUMIN_R_sites[1,2]
+```
+
+
+
+```{r, include=FALSE}
+
+#Make the R-Squared Value Table----
+
+#Create a data frame----
+
+# R_Squared_value<-data.frame("Regression Model" = c( "OLS Model (TSS and THg as fixed effects)", "LME Model with sites as a random effect(TSS, THg, and Seasons (dry/wet) as fixed effects"), "R-Squared Value"=)
+
+
+RegressionModel<-c("OLS Model", "LME Model with Dry/wet Seasons as a fixed effect", "LME Model without Dry/wet Seasons as a fixed effect")
+
+R_Squared<-c(summary(OLS_overall)$adj.r.squared, Conditional_R, Conditional_R_sites)
+
+R_squared_table<-data.frame(RegressionModel, R_Squared)
+
+#Re-name column of the table and remove rownames----
+
+colnames(R_squared_table)<-c("Regression Model", "R-Squared Value")
+rownames(R_squared_table)<-NULL
+#Add In-table markers (footnotes)----
+
+# knitr::kable(R_squared_table, padding=2, digits=5, row.names =TRUE, format ="pandoc", caption=tbls(name="LenFreq6","R-Squared Results for All Regression Models[note]")) %>%
+# add_footnote(c("The Adjusted R-Squared value was used for the OLS Model and the Conditional R-Squared value was used for both LME Models"), notation = "symbol")
+
+knitr::kable(R_squared_table, padding=2, digits=5, row.names =TRUE, format ="pandoc", caption=tbls(name="LenFreq6","R-Squared Results for All Regression Models[note]")) %>%
+add_footnote(c("The Adjusted R-Squared value was used for the OLS Model and the Conditional R-Squared value was used for both LME Models"))
+
+```
+
+
+
+```{r, include=FALSE}
+
+#Make a dataframe for the Estimated TSS Concentrations table----
+
+THg_conc_1<-c(0.14,0.622,0.964, 1.560, 1.901, 2.590, 5.260)
+TSS_conc_1<-c(4.27*10^(-14), 8.14* 10^(-13), 1.94* 10^(-12), 5.01* 10^(-12), 7.41* 10^(-12), 1.36* 10^(-11), 5.53* 10^(-11))
+
+Table_Estimated_conc<-cbind.data.frame(TSS_conc_1,THg_conc_1)
+colnames(Table_Estimated_conc)<-c("TSS Concentrations (mg/L)","THg Concentrations (ng/L)")
+
+knitr::kable(Table_Estimated_conc, padding=2, digits=20, row.names =F, format ="pandoc", caption=tbls(name="LenFreq8","Estimated Concentrations of TSS based on the LME Model Equation (the range of THg Concentration values were based on summary results)"))
+
+```
+
+
+
+```{r, include=FALSE}
+
+#Make a dataframe for the TSS Concentrations Reduction (%) table----
+
+
+Per_red_TSS<-c("20 (from 100 to 80 mg/L)","40 (from 100 to 60 mg/L)", "60 (from 100 to 40 mg/L)", "70 (from 100 to 30 mg/L)", "80 (from 100 to 20 mg/L)", "90 (from 100 to 10 mg/L)")
+Per_red_THG<-c(10.7, 22.8, 37.1, 45.7, 55.7, 68.9)
+
+Table_Percent_red<-cbind.data.frame(Per_red_TSS, Per_red_THG)
+colnames(Table_Percent_red)<-c("TSS Concentration Reduction (%)", "THg Concentration Reduction (%)")
+
+knitr::kable(Table_Percent_red, padding=2, digits=5, row.names =F, format ="pandoc", caption=tbls(name="LenFreq9","Estimated Percent Reduction of THg Concentrations based on the LME Model"))
+
+
+```
+
+
+```{r, include=FALSE}
+#Calculate the quartiles of the TSS concentrations----
+
+quantile(DL_final_removed$TSS_mg_l)
+
+
+#Add the original cdf plot based on the 63 Surrogate pairs
+
+
+
+#TSS concentrations to the right of Q3 (75%)
+#create dataframe with the 75% quartiles values reduced by 10% (5 years)----
+DL_final_removed_20<-DL_final_removed %>%
+  mutate(TSS_Reduction_cdf = ifelse(DL_final_removed$TSS_mg_l >=8, (1-0.10)*DL_final_removed$TSS_mg_l, DL_final_removed$TSS_mg_l))
+
+DL_final_removed_20$TSS_Percent_Reduction<-"10%"
+
+ 
+ #create dataframe with the 75% quartiles values reduced by 25% (10 years)----
+ DL_final_removed_30<-DL_final_removed %>%
+ mutate(TSS_Reduction_cdf= ifelse(DL_final_removed$TSS_mg_l >=8, (1-0.25)*DL_final_removed$TSS_mg_l, DL_final_removed$TSS_mg_l))
+
+DL_final_removed_30$TSS_Percent_Reduction<-"25%"
+
+ #create dataframe with the 75% quartiles values reduced by 50% (20 years)----
+ DL_final_removed_50<-DL_final_removed %>%
+   mutate(TSS_Reduction_cdf = ifelse(DL_final_removed$TSS_mg_l >=8, (1-0.50)*DL_final_removed$TSS_mg_l, DL_final_removed$TSS_mg_l))
+
+DL_final_removed_50$TSS_Percent_Reduction<-"50%"
+
+
+ #create dataframe with the 75% quartiles values reduced by 75% (30 years)----
+
+ DL_final_removed_75<-DL_final_removed %>%
+  mutate(TSS_Reduction_cdf= ifelse(DL_final_removed$TSS_mg_l >=8, (1-0.75)*DL_final_removed$TSS_mg_l, DL_final_removed$TSS_mg_l))
+
+DL_final_removed_75$TSS_Percent_Reduction<-"75%"
+
+#Do one for the original dataset cdf plot----
+
+ DL_final_removed<-DL_final_removed %>%
+  mutate(TSS_Reduction_cdf=DL_final_removed$TSS_mg_l)
+
+DL_final_removed$TSS_Percent_Reduction<-"0%"
+
+cdf_plot_data<-rbind(DL_final_removed, DL_final_removed_20, DL_final_removed_30, DL_final_removed_50, DL_final_removed_75)
+
+
+
+```
+
+
+
+```{r, include=FALSE}
+#Make the table for the schedule for interim goals for reducing total suspended solid concentrations----
+
+
+Years_sch<-c("0", "5","10", "20", "30")
+
+Reduction_in_75_percentile<-c("0%","10%", "25%", "50%", "75%")
+
+Changes_in_instream_TSS_concentrations<-c("17","15","13", "8.5", "4.2")
+
+Cumulative_Reduction_in_TSS_concentrations<-c("0", "2", "4", "8.5","13")
+
+                
+Table_Schedule<-cbind.data.frame(Years_sch,Reduction_in_75_percentile, Changes_in_instream_TSS_concentrations, Cumulative_Reduction_in_TSS_concentrations)
+
+colnames(Table_Schedule)<-c("Years from 2019", "Reduction in 75 Percentile of TSS", "Estimated Reductions in TSS Concentration (mg/L)", "Cumulative Reduction in THg Concentration (mg/L)")
+
+```
+
+##Executive Summary
+
+The Oregon Department of Environmental Quality (ODEQ) requires that Total Maximum Daily Load (TMDL) targets for mercury concentrations are meet in the Willamette River. An analysis was conducted using regression models to assess how Total Suspended Solid (TSS) concentrations could be used as a surrogate measure for instream total mercury (THg) concentrations in the Willamette River Basin. The dataset used for the modeling comprised of 63 surrogate TSS-THg samples with mercury concentrations above detection limits that were collected from 17 different sites that were dispersed throughout 9 HUC 8 subbasins within the Willamette River Basin.  The following models were conducted for the analysis: An Ordinary Least Squares (OLS) model, a Linear mixed effects (LME) model with dry/wet seasons as a fixed effect and sites as a random effect, and an LME model with sites (excluding dry/wet seasons as a fixed effect). The results for the OLS model indicated that only 32% of the variance in THg concentrations could be explained by differences in TSS concentrations. The OLS model results suggested that other factors, such as spatial and temporal patterns, need to be taken into account for the analysis. The results for the LME model with dry/wet seasons as a fixed effect indicated that 80% of the variance in THg concentrations within the Willamette River could be explained by differences in TSS concentrations and by differences in site location, while 81% of the variance was explained by the LME model with sites as a random effect. Overall, the results suggest that spatial patterns such as site locations play a more significant role than temporal patterns such as seasonal differences (dry/wet periods) in the analysis. Thus, the LME model with sites was selected for the instream analysis.
+
+Recommendations based on the analysis are listed below:
+
+1)	The LME model with sites should be used as a basis for establishing guidelines for the Willamette Basin Mercury TMDL
+
+2)	The LME equation can be used to find estimated TSS concentrations and percent reductions of THg concentrations 
+
+
+##Introduction
+
+The Oregon Department of Environmental Quality (ODEQ) has established a Total Maximum Daily Load (TMDL) for total mercury (THg) in the Willamette River and its tributaries to restore the beneficial use of fish consumption. The Willamette Basin Mercury TMDL was established to reduce concentrations of mercury to a level that no longer poses to be an unacceptable health risk to humans and aquatic wildlife. The Willamette Basin Mercury TMDL establishes acceptable loads (nonpoint sources) and wasteloads (point sources) of total mercury in the Willamette River Basin. The ODEQ has established an instream TMDL target THg concentration of 0.14 ng/L within the Willamette River Basin based on the simulated bioaccumulation of methylmercury for Northern Pikeminnow (ODEQ, 2019). However, because monitoring for total mercury can be difficult and cost-prohibitive, agencies and monitoring groups often use total suspended solids (TSS) as a surrogate for THg in stream. TSS is often used as a surrogate for pollutants, such as heavy metals and organic pollutants (Eckley & Branfireun, 2009). For example, TSS was used as a surrogate for DDT (Dichlorodiphenyltrichloroethane) to meet instream targets for the Lower Yakima TMDL in Washington (Johnson, 2007). A positive correlation between TSS and THg due to the capacity of THg to bind to particulate matter makes TSS a useful surrogate measure (Eckley & Branfireun, 2008). Therefore, provided that there is correlation between TSS and THg within the mainstem Willamette River and its tributaries, TSS could be used to predict instream THg concentrations in the Willamette River Basin (Hope & Rubin, 2004).
+
+There are several major sources of THg concentrations within the Willamette River, including atmospheric deposition, soil/sediment erosion, and point source discharges from industrial facilities and stormwater outfalls. However, because controlling the sources of THg in atmospheric deposition is not tenable, DEQ has focused on controlling processes that increase of instream THg concentrations, including soil/sediment erosion (ODEQ, 2019).
+
+The Environmental Protection Agency (EPA) and DEQ are using the watershed model Hydrological Simulation Program-FORTRAN (HSPF) to examine THg sources in surface water, subsurface systems, and soil/sediment erosion.  Overall, this model can be used to assess the mass transport of THg from different land uses throughout the Willamette River Basin (TetraTech, 2019). For particulate THg, the HSPF model uses soil erosion rates simulated by the model paired with soil-THg data (weight of THg per weight of eroded soil) to calculate the mass transport of particulate THg to set particulate THg loads (TetraTech, 2019). Thus, the HSPF model provides calculations of the distribution of mercury in the water column and sediment. 
+
+
+
+##Methodology
+
+TetraTech, contracted by the Environmental Protection Agency (EPA), provided the paired surrogate data (TSS and THg concentrations) used in the analysis. Data had been compiled from the Willamette River Basin Mercury database (WRB Hg database) and from the Water Quality Portal (WQP) (TetraTech, 2018). There were 187 instream TSS-THg samples collected along the Willamette River main stem (from Portland to Cottage Grove) and tributaries leading into the Willamette River (Tualatin River, Clackamas River, North Santiam River, etc.) (`r tbls("LenFreq1", display ="cite")`; `r figs("LenFreq1", display = "cite")` and `r figs("LenFreq2", display = "num")`). Samples of total mercury concentrations collected along the Portland Harbor Superfund site were high probably because of decades of industrial contamination along the site. Also, the influence of tidal exchange may cause excess mercury to exchange with sediments differently than in a unidirectional flow environment. To avoid combining paired data from different aquatic environments, all of the surrogate samples collected from the Portland Harbor Superfund site were omitted from the dataset, resulting in a total of 185 samples. Additionally, non-detect (censored) data were excluded from the analysis, resulting in a total of 63 instream surrogate samples with detected mercury concentrations from 17 sampling locations (see discussion of methods for non-detect data in section 1.2.1) (`r tbls("LenFreq2", display ="cite")`). 
+
+All data were extracted from the WRB Hg database from 1/1/2002 to present. The 63 paired samples were collected from 9 different HUC 8 subbasins within the Willamette River Basin (`r tbls("LenFreq1", display ="cite")`; `r figs("LenFreq3", display = "num")`). All of the 63 surrogate pairs had mercury concentrations with a detection limit of 0.5 ng/L (EPA Method 1631), which is above the instream target of 0.14 ng/L THg set for the Willamette.  All of the samples used for the analysis were above this detection limit.
+
+Each pair of surrogate TSS-THg data consisted of 1 TSS (mg/L) and 1 THg (ng/L) concentration that was collected at the same time and date. The sites (sampling locations) used in the analysis were defined by the latitude and longitude coordinates where the samples were collected.
+
+
+The following methods were used:
+
+*	An initial exploratory analysis was used to provide summary statistics of TSS and THg and insights on transformation needed.  
+
+*	Box-Cox transformations were used to determine the most suitable power transformation to normalize the error distribution in the response variable. 
+
+*	Linear models were used to quantify the relationship between TSS and THg: 
+
+    + Ordinary Least Square (OLS) model 
+  
+    + Linear Mixed Effects (LME) model with sites as a random effect and dry/wet seasons as a fixed effect
+    
+    + Linear Mixed Effects (LME) model with sites as a random effect 
+
+The LME model was used to account for differences in site specific variation in parameters, and the addition of dry/wet seasons as a fixed effect was used to account for how dry/wet seasons impact the change in mean THg concentrations as seasons are one of the big drivers of precipitation within the Willamette River Basin (ODEQ, 2019). If the surrogate samples were collected from the months of June through October then it was classified as a dry season surrogate sample and if the surrogate samples were collected from the months of November through May then it was classified as a wet season surrogate sample.
+
+To assess if the model sufficiently described the relationship between THg and TSS in the Willamette River, a diagnostic check of normality, constant variance, and independence was conducted for the two models. All analyses were conducted using R Version 3.5, Microsoft Office Excel (2016), and ArcMap version 10.5.1.
+
+
+
+###Addressing Non-Detect (Censored) data
+
+The dataset contained 65% of non-detect (censored) data, as there were 122 TSS-THg surrogate pairs with non-detected mercury concentrations within the original dataset of 187 surrogate pairs that TetraTech had provided DEQ. A total of five method detection limits (MDLs) were reported for the THg concentrations (0.5 ng/L, 20 ng/L, 30 ng/L, 40 ng/l, and 80 ng/l). There are several statistical techniques, such as the Maximum Likelihood Estimation (MLE) and the Regression on Order Statistics (ROS), that can handle non-detect data with multiple detection limits and can used to estimate the distribution of non-detects and determine summary statistics such as the mean and standard deviation of THg concentrations (Helsel, 2005). However, the larger the magnitude of the detection (censoring) limits, the more uncertainty and information loss when it comes to estimating model parameters (ITRC, 2013). Therefore, with a significant difference in the order of magnitude between the detection limits (i.e. 0.5 ng/L versus 20, 30, 40, or 80 ng/L), the decision was made to remove the 122 non-detects from the dataset. A total of 63 surrogate pairs with detected THg concentrations were used for the instream analysis and all of the pairs had THg concentrations above their respective detection limit of 0.5 ng/L. 
+
+   
+###Ordinary Least Squares
+
+The ordinary least squares (OLS) model was constructed using TSS as the independent variable (fixed effect) and THg as the dependent variable. The OLS model assumes normality in parameter estimates and in the distribution of residuals. THg Concentrations, as a function of TSS concentrations, were generated using the following equation:
+
+Y= $\beta_0$+ $\beta_1$ x X+ $\epsilon$ ~N(0,$\sigma^2$) where,
+
+Y  (Response Variable) = log10 transformed THg concentrations (mg/L)
+
+X  (Predictor Variable) = log10 transformed TSS concentrations (mg/L)
+
+$\beta_0$ = Intercept 
+
+$\beta_1$ = Slope (Rate of change in log10 transformed THg concentrations as a function of the change in log10 transformed TSS concentrations)
+
+$\sigma^2$ = Error of the residuals (where N represents residuals that are normally distributed with a mean of zero and have a variance of $\sigma^2$)
+
+
+
+###Linear Mixed-Effects Model
+
+The LME model is similar to the OLS model, as it also uses the dependent variable (THg concentrations) and the fixed effect (TSS concentrations), but it also includes a random effects variable (sites). Random effects and fixed effects are both explanatory variables. However, random effects explain the change in the variance of the dependent variable and the fixed effect explains the change in the mean of the dependent value. In other words, we expect that mean THg concentrations will increase with TSS concentrations across all sites, but that the variance around the increase may depend on the given site.
+
+Two LME models were used for the analysis, with both incorporating sites as a random effect. One LME model included dry/wet seasons as an additional fixed effect while the second LME model excluded the fixed effect of dry/wet seasons. By including dry/wet seasons as a fixed effect, we expect that the mean THg concentrations will increase or decrease according to whether the samples were collected during dry (months of June-October) or wet (months of November-May) seasons. Thus, in order to test the hypothesis that THg will increase with TSS and that mean THg concentrations will increase or decrease according to whether it is a dry or wet season, both site and seasonal variation should be taken into account using the mixed effects model approach.
+
+A random intercept LME model was fitted to the data to model differences between sites within the same data set. A total of 63 paired samples were split into 17 groups of sites. The LME model used the following general equation (Helwig, 2017):
+
+
+Y= $\beta_0$+ $\beta_1$ x $X_1$ +$\beta_2$ x $X_2$+$\Sigma$($V_i$ + $\epsilon$ ~N(0,$\sigma^2$)) where,
+
+Y  (Dependent/Response Variable) = log10 transformed THg concentrations (mg/L)
+
+$X_1$  (Independent/Predictor Variable or Fixed Effect) = log10 transformed TSS concentrations (mg/L)
+
+$X_2$ (Additional Fixed Effect) = dry/wet seasons
+
+$V_i$ (Random intercepts of each random effect) = sampling sites
+
+$\beta_0$ = Intercept 
+
+$\beta_1$ = Slope (Rate of change in log10 transformed THg concentrations as a function of the change in log10 transformed TSS concentrations)
+
+$\beta_2$ = Slope (Rate of change in log10 transformed THg concentrations as a function of change in dry/wet seasons
+
+$\sigma^2$ = Error of the residuals (where N represents residuals that are normally distributed with a mean of zero and have a variance of $\sigma^2$)
+
+
+
+###Prediction Intervals
+
+A 95 percent prediction interval was used to calculate a likely range of future THg values based on the LME models. 
+
+```{r, include=FALSE}
+#Store the results of your OLS model (the slope and the intercept) to write LaTex equations for results and as in-line code
+
+options(digits=3) #Decimal place of 3
+p_OLS<-summary(OLS_overall)$coefficients[2,4]
+rounded_p_OLS<-signif(p_OLS, digits=3)
+slope_OLS<-summary(OLS_overall)$coefficients[2,1]
+intercept_OLS<-summary( OLS_overall)$coefficients[1,1]
+adj_r_sq_OLS<-summary(OLS_overall)$adj.r.squared
+r_sq_OLS<-summary(OLS_overall)$r.squared
+
+
+```
+
+##Results
+
+The plots demonstrate a right-skewed distribution of sampling data (`r figs("LenFreq4", display = "cite")`). The skewed data were transformed to improve normality of the data distribution, which is needed to meet that assumptions for the OLS model. The variation in TSS-THg concentrations across all HUC 8 subbasins and within each individual HUC 8 subbasin was examined (`r tbls("LenFreq3", display ="cite")`, `r tbls("LenFreq4", display ="cite")`, and `r tbls("LenFreq5", display ="cite")`). Scatterplots were used to illustrate the variation in TSS-THg Concentrations across all HUC 8 subbasins and across dry/wet seasons (`r figs("LenFreq5", display = "cite")`, `r figs("LenFreq6", display = "num")`, and `r figs("LenFreq7", display = "num")`).The scatterplots indicate that there is a stronger correlation between TSS and THg concentrations within the Upper Willamette, Middle Willamette, and Clackamas subbasins and that THg and TSS concentrations tend to be higher in the wet season. As determined by the box-cox transformation, a log10 transformation was applied to the independent (predictor) and dependent (response) variables for development of the OLS regression (`r figs(name="LenFreq8", display="cite")`).
+
+The OLS model showed a significant (*p* < `r rounded_p_OLS`) correlation between THg and TSS concentrations. However, the OLS model provides a weak fit to the data as there is a large difference between the values of THg sample concentrations and the THg concentrations predicted by the OLS regression (`r figs(name="LenFreq9", display="cite")`). An adjusted R-squared value of `r adj_r_sq_OLS` indicates that TSS concentrations alone does explain a large amount of variation in THg concentrations (`r tbls("LenFreq6", display ="cite")` and `r tbls("LenFreq9", display ="num")`). The following OLS equation was determined:
+
+
+(1) $log_{10}$(THg conc.) = `r slope_OLS` x $log_{10}$(TSS conc.) + `r intercept_OLS`
+
+
+
+```{r, include=FALSE}
+
+# m_lme_summary<-summary(mixed.lmer_Surrogate)
+
+#Create a df for the fixed effects summary results of the lme model  
+# coefs <- data.frame(coef(summary(mixed.lmer_Surrogate), digits=2))
+
+#data.frame(ranef(mixed.lmer_Surrogate))
+
+
+
+#Store the results of the LME Model with seasons (slope, intercept, and p-value) to include in LaTex equations and as in-line code----
+
+
+p_LME_seasons<-df_LMEM_total[2,8]
+rounded_p_seasons<-signif(p_LME_seasons, digits=3)
+slope_LME_seasons<-df_LMEM_total[2,4]
+rounded_slope_fixed_seasons<-signif(slope_LME_seasons, digits=3)
+intercept_LME_seasons<-df_LMEM_total[1,4]
+rounded_int_fixed_seasons<-signif(intercept_LME_seasons, digits=3)
+slope_seasons<-df_LMEM_total[3,4]
+rounded_slope_seasons<-signif(slope_seasons, digits =2)
+MUMIN_R<-r.squaredGLMM(mixed.lmer_Surrogate)
+marginal_R<-MUMIN_R[1,1]
+Conditional_R<-MUMIN_R[1,2]
+R_sq_cond_lme<-Conditional_R
+rounded_R_sq_cond_lme_seasons<-format(round(R_sq_cond_lme, digits = 2), nsmall=2) #to retain the 0 after the .8 se format, round, and nsmall
+R_lme_marg_seasons_rounded<-signif(marginal_R, digits = 3)
+
+site_variance<-Matrix_df_LMEM_final
+
+
+
+#Store the results of the LME Model without seasons (slope, intercept, and p-value) to include in LaTex equations and as in-line code----
+
+
+p_LME_sites<-df_LMEM_total_LME_sites[2,8]
+rounded_p_sites<-signif(p_LME_sites, digits=3)
+slope_LME_sites<-df_LMEM_total_LME_sites[2,4]
+rounded_slope_LME_sites<-signif(slope_LME_sites, digits=3)
+intercept_LME_sites<-df_LMEM_total_LME_sites[1,4]
+rounded_int_fixed_sites<-signif(intercept_LME_seasons, digits=3)
+MUMIN_R_sites<-r.squaredGLMM(mixed.lmer_sites_only)
+marginal_R_sites<-MUMIN_R_sites[1,1]
+Conditional_R_sites<-MUMIN_R_sites[1,2]
+rounded_R_sq_cond_lme_sites<-format(round(Conditional_R_sites, digits = 2), nsmall=2) #to retain the 0 after the .8 se format, round, and nsmall
+R_lme_marg_sites_rounded<-signif(marginal_R_sites, digits = 2)
+
+```
+
+The LME model, with sites as a random effect and the addition of dry/wet seasons as a fixed effect showed a significant (*p* <`r rounded_p_seasons`) positive correlation between THg and TSS concentrations (`r tbls("LenFreq7", display ="cite")`; `r figs("LenFreq10", display ="cite")`). The conditional (fixed and random effects added together) R-squared value was `r rounded_R_sq_cond_lme_seasons` versus `r R_lme_marg_seasons_rounded` for the marginal (fixed effects only) R-squared value (`r tbls("LenFreq9", display ="cite")`). The variance of THg due to TSS increased greatly with the addition of the random effects variable (`r tbls("LenFreq7", display ="cite")`). The following equation which resulted from the LME model was used:
+
+
+(2)	$log_{10}$(THg conc.) = `r rounded_slope_fixed_seasons` x $log_{10}$(TSS conc.) + `r rounded_slope_seasons` x (Dry/Wet Season) - 0.086
+
+
+The LME model without the fixed effect of dry/wet seasons performed slightly better than the LME model with seasons (`r tbls("LenFreq8", display ="cite")`;`r figs("LenFreq11", display ="cite")`). The conditional R-squared value of the model (`r rounded_R_sq_cond_lme_sites`) was slightly bigger than the conditional R-squared value from the LME model including including seasons (`r rounded_R_sq_cond_lme_seasons`) (`r tbls("LenFreq9", display ="cite")`). The variance of THg due to TSS increased greatly with the addition of the random effect in both LME models. The following equation which resulted from the LME model without dry/wet seasons was used:
+
+
+(3)	$log_{10}$(THg conc.) = `r slope_LME_sites` x $log_{10}$(TSS conc.) - 0.089
+
+Overall, both LME models performed better in quantifying the correlation between THg and TSS concentrations than the OLS model. The 95 percent prediction intervals for the range of samples and model parameters are displayed in `r figs("LenFreq10", display ="cite")` and `r figs("LenFreq11", display ="num")`. The diagnostic statistics for the OLS model and LME model are presented in `r figs("LenFreq12", display ="cite")`, `r figs("LenFreq13", display ="num")`, and `r figs("LenFreq14", display ="num")`. Estimated TSS concentrations based on the LME model with sites as a random effect are listed in `r tbls("LenFreq10", display ="cite")`, and percent reductions of THg are listed in `r tbls("LenFreq11", display ="cite")`. In addition, a cumulative distribution function (cdf) plot of TSS sample concentrations for uncensored data is displayed in `r figs("LenFreq15", display ="num")`. 
+
+
+
+##Discussion
+
+The OLS model results indicate that TSS concentrations could explain < 50% of variation in THg concentrations. Without taking sites or dry/wet seasons into account when developing the model, model error estimates may be too high for predictions. Additionally, the high uncertainty of the OLS model may result from spatial or temporal patterns in the data that needed to be taken into account within the model.
+
+In order to account for spatial variability, a random effect of sites was incorporated into the LME models. To account for temporal variability, dry/wet seasons were included as a fixed effect in the LME model with sites as a random effect. Two LME models were fit to the sample data in order to quantify how much of the residual variation (variation in the error) in THg concentrations could be taken into account by the random effect of sites and to quantify if dry/wet seasons affected the mean of THg concentrations. Although both of the LME models performed well, the LME model which excluded dry/wet seasons as a fixed effect and included sites as a random effect performed slightly better than the LME model including dry/wet seasons as a fixed effect in explaining the variance in THg concentrations. Thus, the results of the analysis indicate that dry/wet seasons do not play a significant role in explaining the change in mean THg concentration values. These results also indicate that sites (sampling locations) play an important role in affecting variation in THg concentrations. Thus, the LME model with sites (excluding dry/wet seasons) was selected for the instream analysis.
+
+
+
+##Recommendations
+
+The LME model with sites (sampling locations) only can be used to calculate TSS concentrations that correspond to designated THg concentrations. For instance, the LME equation can be used to find estimated TSS concentrations and calculate percent reductions of THg concentrations (example applications are listed below). Based on the strong relationship found between total suspended solids and total mercury interim goals were set for reductions in TSS concentration to measure progress in the reduction in total mercury loads. The approach is to set reductions in the 75-percentile for the TSS concentration over time. The initial 75 percentile of TSS concentration is based on the 2019 dataset used to develop the TSS and total mercury concentrations. The schedule is listed in `r tbls("LenFreq12", display ="cite")`. The 75th percentile for the total suspended solids concentrations can be seen in `r figs("LenFreq16", display ="num")`, which is the empirical cumulative distribution function for the observed total suspended solids concentrations. The empirical cumulative distribution function will be reanalyzed when new data becomes available and a Bayesian inference approach to structured decision making (Conroy & Peterson, 2013) will be used to update the statistical distribution used to assess the progress in meeting the reduction targets and to reassess past targets if any had occurred. 
+
+LME Equation with sites (excluding seasons):
+
+$log_{10}$(THg conc.) (mg/L) = `r slope_LME_sites` x $log_{10}$(TSS conc.) (mg/L) - 0.089
+
+
+Example Application of LME Model excluding seasons:
+
+
+(1) To find estimated TSS Concentrations (The range of THg concentrations were based on the THg summary statistics)
+
+
+- Substitute 0.14 ng/L for the THg Concentration 
+
+0.14 ng/L = 1.4 x 10-7 mg/L
+
+
+Log10 (1.4 x 10-7) = 0.506 x log10 (X) - 0.089
+
+
+(-6.85387 + 0.089)= 0.506 x log10 (X) 
+
+
+(-6.85387 + 0.089)/ (0.506) = log10 (X)
+
+
+-13.3693 = log10 (X)
+
+
+X = 4.272 x 10^(-14) TSS (mg/L)
+
+
+
+(2) To find percent reductions in THg concentrations
+
+
+Percent Reduction from 100 mg/L to 80 mg/L:
+
+- Substitute 100 mg/L for the TSS Concentration 
+
+
+log10 (THg conc.) = 0.506 x log10 (100 mg/L) -0.089
+
+log10 (THg conc.) = 0.923
+
+10^(0.923) =  8.38 mg/L 
+
+
+- Substitute 80 mg/L for the TSS Concentration 
+
+
+log10 (THg conc.) = 0.506 x log10 (80 mg/L) -0.089
+
+log10 (THg conc.) = 0.874
+
+10^(0.874) = 7.48 mg/L 
+
+
+- Use the following equation to find the percent reduction
+
+
+% Reduction = (Original value - New value)/(Original value) x 100
+                              
+(8.38-7.48)/(8.38) x 100 = 10.7
+
+
+
+
+##Tables
+
+```{r, echo=FALSE}
+#Table 1: Entire Dataset of 187 Surrogate Pairs that TT provided----
+
+knitr::kable(Entire_dataset_surrogate, padding=2, digits=5, row.names =FALSE, format ="pandoc", caption=tbls(name="LenFreq1","Full TSS-THg Dataset Provided by TetraTech for the Instream Willamette River Basin Surrogate Analysis"))
+
+
+
+```
+
+
+
+```{r,echo=FALSE}
+#Table 2: Sampling Sites----
+
+knitr::kable(Sampling_sites_ordered, padding=2, digits=5, row.names =FALSE, format ="pandoc", caption=tbls(name="LenFreq2","Sampling Sites for the Instream Willamette River TSS-THg Surrogate Analysis"))
+```
+
+
+
+```{r, echo=FALSE}
+#Table 3: TSS-THg concentrations across all HUC 8's----
+
+knitr::kable(Summary_fin, padding=2, digits=5, row.names =TRUE, format ="pandoc", caption=
+tbls(name="LenFreq3","Summary Statistics for Untransformed TSS (mg/L) and THg Concentrations (ng/L) across all HUC 8 Subbasins"))
+
+```
+
+
+
+```{r, echo=FALSE}
+#Table 4: Make THg summary stats into Kable table for each individual HUC 8 Subbasin---- 
+
+
+
+knitr::kable(Sum_stats_DL_final_rem_THg, col.names = c("HUC 8 Code", "Min.", "1st Qu.", "Median", "Mean","3rd Qu.", "Max."), padding=2, digits=5, row.names =FALSE, format ="pandoc", caption=tbls(name="LenFreq4","Summary Statistics for Untransformed THg Concentrations (mg/L) for each individual HUC 8 Subbasin"))
+
+
+
+```
+
+
+
+```{r, echo=FALSE}
+
+
+#Table 5: Summary Stats kable for TSS Table-----
+
+
+
+knitr::kable(Sum_stats_DL_final_rem_TSS, col.names = c("HUC 8 Code", "Min.", "1st Qu.", "Median", "Mean","3rd Qu.", "Max."), padding=2, digits=5, row.names =FALSE, format ="pandoc", caption=tbls(name="LenFreq5","Summary Statistics for Untransformed TSS Concentrations (ng/L) for each individual HUC 8 Subbasin"))
+
+
+
+
+```
+
+
+
+```{r, echo=FALSE}
+#Table 6: OLS Model Summary results for all HUC 8's
+
+knitr::kable(df_overall_OLS, padding=2, digits=7, row.names =TRUE, format ="pandoc", caption=
+tbls(name="LenFreq6","OLS Model Summary Results for all HUC 8 Subbasins"))
+
+
+```
+
+
+
+```{r, echo=FALSE}
+#Table 7: LME Model Summary results for all HUC 8's with Sites as a random effect and Wet/Dry seasons as a fixed effect
+
+#Make a Kable table with color(grey)----
+
+kable(df_LMEM_matrix,padding=2, digits=5, row.names =FALSE, format ="pandoc", caption=
+tbls(name="LenFreq7","LME Model Summary Results for all HUC 8 Subbasins with Sites as a Random Effect and Dry/Wet Seasons as a Fixed Effect"))
+  
+
+
+
+```
+
+
+
+```{r, echo=FALSE}
+#Table 8: LME Model Summary results without seasons and with Sites as a random effect 
+
+#Make a Kable table with color(grey)----
+
+kable(df_LMEM_matrix_sites,padding=2, digits=5, row.names =FALSE, format ="pandoc", caption=
+tbls(name="LenFreq8","LME Model Summary Results for all HUC 8 Subbasins without Dry and Wet Seasons as a Fixed Effect"))
+  
+
+```
+
+
+
+```{r, echo=FALSE}
+
+#Table 9: R-Squared Value Table----
+
+knitr::kable(R_squared_table, padding=2, digits=5, row.names =FALSE, format ="pandoc",caption=tbls(name="LenFreq9","R-Squared Results for All Regression Models")) %>%
+add_footnote(c("The Adjusted R-Squared value and the Conditional R-Squared value was used for both OLS Models and the LME Model"))
+
+```
+
+
+
+```{r, echo=FALSE}
+
+#Table 10: Estimated TSS Concentrations based on the LME model equation----
+
+knitr::kable(Table_Estimated_conc, padding=2, digits=20, row.names =FALSE, format ="pandoc", caption=tbls(name="LenFreq10","Estimated Concentrations of TSS based on the LME Model Equation (the range of THg Concentration values were based on summary results)"))
+
+```
+
+
+
+```{r, echo=FALSE}
+#Table 11: Percent Reduction in TSS and reduction in mercury----
+
+knitr::kable(Table_Percent_red, padding=2, digits=5, row.names =F, format ="pandoc", caption=
+tbls(name="LenFreq11","Estimated Percent Reduction of THg Concentrations based on the LME Model"))
+ 
+```
+
+
+
+```{r, echo=FALSE}
+#Table 12: Schedule for interim goals for reducing Total Suspended Solid Concentrations----
+
+knitr::kable(Table_Schedule, padding=2, digits=5, row.names =FALSE, format ="pandoc",caption=tbls(name="LenFreq12","Schedule for interim goals for reducing TSS concentrations")) %>%
+add_footnote(c("Based on the 95 Percentile of TSS Concentrations from the Dataset of 63 Surrogate Pairs. The current TSS Estimate Concentration is 17 mg/L."))
+
+```
+
+
+
+
+
+
+##Figures
+
+
+
+```{r, echo=FALSE, fig.cap= figs(name="LenFreq1", caption= "Boxplot of Untransformed TSS and THg Concentrations (mg/L) from the Original Dataset of 187 Surrogate Pairs.")}
+
+#Figure 1: Boxplot of Unstransformed TSS and THg data from the Original Dataset that Tetratech gave (187 Surrogate pairs)----
+
+par(mfrow=c(1,2))
+boxplot(plot_entire_data_df$`TSS (mg/L)`, ylab="Untransformed TSS Concentrations (mg/L)")
+boxplot(plot_entire_data_df$`THg (ng/L)`, ylim=c(0, 90), ylab="Untransformed THg Concentrations (ng/L)")
+abline(h=0.14, col="red")
+
+```
+
+
+
+```{r, echo=FALSE, fig.cap= figs(name="LenFreq2", caption= "Scatterplot of Untransformed TSS and THg Concentrations (mg/L) from the Original Dataset of 187 Surrogate Pairs.")}
+
+#Figure 2: Scatterplot of TSS and THg concentrations from the Original Dataset of 187 Surrogate Pairs----
+
+
+D_W_Seasons_entire_data<-ggplot(plot_entire_data_df, aes(x=plot_entire_data_df$`TSS (mg/L)`, y=plot_entire_data_df$`THg (ng/L)`))+
+  geom_point(aes(shape = plot_entire_data_df$Season_category, size=2)) +
+  guides(size=FALSE)+
+  scale_fill_manual("Interval", values=c("grey33"))+
+  xlab("TSS Concentrations (mg/L)")+ 
+  ylab("THg Concentrations (ng/L)")+
+  labs(shape="Seasons")
+
+D_W_Seasons_entire_data
+
+
+
+```
+
+
+
+```{r, echo=FALSE, fig.cap= figs(name="LenFreq3",caption="Willamette River Instream Surrogate TSS-THg Sampling Sites Map.")}
+
+#Figure 3: Map of the Sampling Sites----
+
+ knitr::include_graphics('C:/Users/jgovind/Documents/Instream_Willamette/WillametteBasinDams_FINAL_city_limits.png')
+
+```
+
+
+
+```{r, echo=FALSE, fig.cap = figs(name="LenFreq4",caption="Boxplot of Untransformed TSS and THg Concentrations (mg/L). The Red Line Represents an Instream Target Mercury Concentration of 0.14 ng/L.")}
+
+#Figure 4 : Boxplot of the Untransformed TSS and THg concentrations from the 63 surrogate pairs----
+
+#make boxplots for the TSS (mg/L) and THg (ng/L) concentrations----
+par(mfrow=c(1,2))
+boxplot(DL_final_removed$TSS_mg_l, ylab="Untransformed TSS Concentrations (mg/L)")
+boxplot(DL_final_removed$Mercury_ng_l, ylim=c(0, 6), ylab="Untransformed THg Concentrations (ng/L)")
+abline(h=0.14, col="red")
+
+
+
+
+```
+
+
+
+```{r, echo=FALSE, fig.cap=figs(name="LenFreq5","Scatterplot of TSS (mg/L) and THg Concentrations (ng/L) for all HUC 8 Subbasins.")}
+
+#Figure 5 : Scatterplot of TSS and THg concentrations for all HUC 8 Subbasins----
+
+HUC_8_plot<-ggplot(DL_final_removed, aes(x=DL_final_removed$TSS_mg_l, y=DL_final_removed$Mercury_ng_l))+
+  geom_point(aes(colour = DL_final_removed$HUC_8, size=2)) +
+  guides(size=FALSE)+
+  scale_fill_manual("Interval", values=c("grey33"))+
+  xlab("TSS Concentrations (mg/L)")+ 
+  ylab("THg Concentrations (ng/L)")+
+  labs(color="HUC 8")
+
+HUC_8_plot
+
+
+
+```
+
+
+
+```{r, echo=FALSE, fig.cap=figs(name="LenFreq6","Scatterplot of TSS (mg/L) and THg Concentrations (ng/L) for each individual HUC 8 Subbasin.")}
+
+#Figure 6: Scatterplot of raw concentrations all individual HUC's-facet_wrap----
+
+All_HUCs<-ggplot(DL_final_removed, aes(x =DL_final_removed$TSS_mg_l, y = DL_final_removed$Mercury_ng_l)) + geom_point() + facet_wrap(~DL_final_removed$HUC_8)+ xlab(" Raw TSS Concentrations (mg/L)") +ylab("Raw THg Concentrations (ng/L)")
+
+All_HUCs
+
+
+```
+
+
+
+```{r, echo=FALSE, fig.cap=figs(name="LenFreq7","Scatterplot of TSS (mg/L) THg Concentrations (ng/L) from all HUC 8's during Wet and Dry Seasons.")}
+
+#Figure 7: Scatterplot of Dry-Wet Seasons----
+
+#ggplot of dry and wet seasons (Wet Season: Nov--May, dry season: Jun-Oct)----
+
+# Dry_Wet_Seasons_plot<-ggplot(DL_final_removed, aes(x=DL_final_removed$TSS_mg_l, y=DL_final_removed$Mercury_ng_l))+
+#   geom_point(aes(colour = DL_final_removed$Season_category, size=2)) +
+#   guides(size=FALSE)+
+#   scale_fill_manual("Interval", values=c("grey33"))+
+#   xlab("TSS Concentrations (mg/L)")+
+#   ylab("THg Concentrations (ng/L)")+
+#   labs(color="Seasons")
+# 
+# Dry_Wet_Seasons_plot
+
+Dry_Wet_Seasons_plot<-ggplot(DL_final_removed, aes(x=DL_final_removed$TSS_mg_l, y=DL_final_removed$Mercury_ng_l))+
+  geom_point(aes(shape = DL_final_removed$Season_category, size=1)) +
+  guides(size=FALSE)+
+  scale_fill_manual("Interval", values=c("grey33"))+
+  xlab("TSS Concentrations (mg/L)")+
+  ylab("THg Concentrations (ng/L)")+
+  labs(shape="Seasons")
+
+Dry_Wet_Seasons_plot
+
+
+```
+
+
+
+```{r, echo=FALSE, fig.cap=figs(name="LenFreq8","Box-cox Transformation of THg concentrations (Dependent Variable")}
+
+#Figure 8: Box-cox Transformation of THg concentrations (Dependent Variable)----
+
+boxcox(DL_final_removed$Mercury_ng_l~DL_final_removed$TSS_mg_l)
+
+```
+
+
+
+```{r, echo=FALSE,fig.cap=figs(name="LenFreq9","OLS Model Scatterplot for all HUC 8's.")}
+#Figure 9: OLS Model Plot----
+
+  OLS_scatter_all<-ggplot(DL_final_removed, aes(x=DL_final_removed$TSS_mg_l,   y=DL_final_removed$Mercury_ng_l))+
+  geom_smooth(method="lm", se=FALSE, formula = y~x)+
+  geom_point(color="black")+
+  xlab("Log10 TSS Concentrations") + ylab ("Log10 THg Concentrations")+
+  scale_y_log10()+ scale_x_log10()
+  
+  
+OLS_scatter_all
+```
+
+
+
+```{r, echo=FALSE,fig.cap=figs(name="LenFreq10","95 Percent Prediction Interval (fixed effect only) for LME Model Regression with Seasons as an Additional Fixed Effect and with Sites as a Random Effect for the Instream THg-TSS surrogate sample pairs."), results='hide'}
+
+#Figure 10: Prediction Interval Plot for LME model with sites as a random effect using jtools package---- 
+
+effect_plot(mixed.lmer_Surrogate, pred=log_fin_TSS,interval=T, plot.points = TRUE, x.label="Log10 Transformed TSS Concentrations", y.label="Log10 Transformed THg Concentrations")
+
+
+```
+
+
+
+```{r, echo=FALSE,fig.cap=figs(name="LenFreq11","95 Percent Prediction Interval (fixed effect only) for LME Model Regression with Sites as a random effect for the THg-TSS surrogate sample pairs."), results='hide'}
+
+#Figure 11: Prediction Interval Plot for LME model with sites as a random effect using jtools package----
+
+effect_plot(mixed.lmer_sites_only, pred=log_fin_TSS,interval=T, plot.points = TRUE, x.label="Log10 Transformed TSS Concentrations", y.label="Log10 Transformed THg Concentrations")
+
+```
+
+
+
+```{r, echo=FALSE,fig.cap = figs(name="LenFreq12","Diagnostic Plot for OLS Model for all HUC 8 Samples.The residuals versus fitted values plot checks for the assumptions of linearity. The Q-Q plot checks for the assumptions of normality, while the scale-location plot checks for homoscedasticity (equal variance). The Cook's Distance plot (residuals versus leverage) helps identify any significant outliers that can influence the regression coefficients of the OLS model.")}
+
+#Figure 12: Diagnostic Plot for OLS Model----
+
+par(mfrow=c(2,2))
+
+plot(OLS_overall)
+```
+
+
+
+```{r, echo=FALSE,fig.cap=figs(name="LenFreq13","Diagnostic Plot for LME Model with Seasons as an Additional Fixed Effect and Sites a Random Effect for all Instream THg-TSS Surrogate Samples. The residuals versus fitted values plot checks for the assumptions of linearity. The Q-Q plot checks for the assumptions of normality, while the scale-location plot checks for homoscedasticity (equal variance). The Cook's Distance plot (residuals versus leverage) helps identify any significant outliers that can influence the regression coefficients of the LME model.")}
+
+#Figure 13: Diagnostic Plot for LME model with seasons----
+
+par(mfrow=c(2,2))
+
+
+#Residuals vs fitted plot
+plot(fitted(mixed.lmer_Surrogate), residuals(mixed.lmer_Surrogate), xlab="Fitted values", ylab="Residuals", main="Residuals vs Fitted")
+abline(h=0)
+lines(smooth.spline(fitted(mixed.lmer_Surrogate), residuals(mixed.lmer_Surrogate)), col="red")
+
+#QQ-plot-do standardized residuals
+qqnorm(DL_final_removed$log_fin_THG)
+qqline(DL_final_removed$log_fin_THG)
+
+#Scale-location plot
+
+MSE<-mean(resid(mixed.lmer_Surrogate)^2)
+
+Std_residuals<-as.numeric(resid(mixed.lmer_Surrogate))/(sqrt(MSE))
+
+abs_Std_residuals<-abs(Std_residuals)
+
+square_root_Std_residuals<-sqrt(abs_Std_residuals)
+
+plot(fitted(mixed.lmer_Surrogate), square_root_Std_residuals, xlab="Fitted values", ylab=expression(sqrt("Standardized residuals")), main="Scale-location")
+lines(smooth.spline(fitted(mixed.lmer_Surrogate), square_root_Std_residuals),col="red")
+
+
+cd<-cooks.distance(mixed.lmer_Surrogate)
+plot(cd,type="h", xlab="Num. of Observations", ylab="Cook's Distance", ylim=range(cd)*c(1,1.1), main="Cook's Distance Plot") #spread out the y-axis
+threshold<-0.063 #threshold is 4/n, n=sample size (4/63)
+lab<-cd>threshold
+mylabel_sig_outliers<-1:length(cd) #label non-missing data (no NA data included)
+text(which(lab), cd[lab], labels=mylabel_sig_outliers[lab], pos=3,cex=0.6,col="black")
+
+
+
+```
+
+
+
+```{r, echo=FALSE,fig.cap=figs(name="LenFreq14","Diagnostic Plot for LME Model with Sites as a Random Effect for all Instream THg-TSS Surrogate Samples. The residuals versus fitted values plot checks for the assumptions of linearity. The Q-Q plot checks for the assumptions of normality, while the scale-location plot checks for homoscedasticity (equal variance). The Cook's Distance plot (residuals versus leverage) helps identify any significant outliers that can influence the regression coefficients of the LME model.")}
+
+# Figure 14: Diagnostic Plot with just Sites as a Random Effect----
+
+par(mfrow=c(2,2))
+
+
+#Residuals vs fitted plot
+plot(fitted(mixed.lmer_sites_only), residuals(mixed.lmer_sites_only), xlab="Fitted values", ylab="Residuals", main="Residuals vs Fitted")
+abline(h=0)
+lines(smooth.spline(fitted(mixed.lmer_sites_only), residuals(mixed.lmer_sites_only)), col="red")
+
+#QQ-plot-do standardized residuals
+qqnorm(DL_final_removed$log_fin_THG)
+qqline(DL_final_removed$log_fin_THG)
+
+#Scale-location plot
+
+MSE_2<-mean(resid(mixed.lmer_sites_only)^2)
+
+Std_residuals_2<-as.numeric(resid(mixed.lmer_sites_only))/(sqrt(MSE_2))
+
+abs_Std_residuals_2<-abs(Std_residuals_2)
+
+square_root_Std_residuals_2<-sqrt(abs_Std_residuals_2)
+
+plot(fitted(mixed.lmer_sites_only), square_root_Std_residuals_2, xlab="Fitted values", ylab=expression(sqrt("Standardized residuals")), main="Scale-location")
+lines(smooth.spline(fitted(mixed.lmer_sites_only), square_root_Std_residuals_2),col="red")
+
+
+cd<-cooks.distance(mixed.lmer_sites_only)
+plot(cd,type="h", xlab="Num. of Observations", ylab="Cook's Distance", ylim=range(cd)*c(1,1.1), main="Cook's Distance Plot") #spread out the y-axis
+threshold<-0.063 #threshold is 4/n, n=sample size (4/63)
+lab<-cd>threshold
+mylabel_sig_outliers<-1:length(cd) #label non-missing data (no NA data included)
+text(which(lab), cd[lab], labels=mylabel_sig_outliers[lab], pos=3,cex=0.6,col="black")
+
+
+
+```
+
+
+
+```{r, echo=FALSE,fig.cap=figs(name="LenFreq15","Empirical Culmulative Distribution of TSS Concentrations across all sites.")}
+
+#Figure 15: Empirical cdf plot of TSS concentrations---- 
+
+plot(ecdf(DL_final_removed$TSS_mg_l), xlab="TSS Concentrations (mg/L)", main="", ylab="Cumulative Distribution Fraction")
+
+
+```
+
+
+
+
+
+```{r, echo=FALSE, fig.cap=figs(name="LenFreq16","Empirical Culmulative Distribution of TSS Concentrations with a 75% Reduction in the Upper Quartile Range (Value that cuts off the the first 75%) of TSS Concentrations across all sites.")}
+
+#Figure 16: Empirical cdf plot of TSS concentrations with Reductions in the Upper Quartile Range (75th Percentile)---- 
+
+ggplot(cdf_plot_data, aes(cdf_plot_data$TSS_Reduction_cdf, color=cdf_plot_data$TSS_Percent_Reduction)) + stat_ecdf(size=2) + xlab("TSS Concentrations (mg/L)") + ylab("Cumulative Distribution Fraction")+ theme_bw()+ guides(color=guide_legend(title="Reduction in 75 percentile of TSS Concentration"))+ theme(legend.position = "bottom", legend.box = "horizontal") 
+
+
+
+
+```
+
+
+
+
+```{r, include=FALSE}
+
+#citation for packages----
+if(nchar(system.file(package="lattice"))) citation("captioner") 
+
+if(nchar(system.file(package="lattice"))) citation("dplyr")
+
+if(nchar(system.file(package="lattice"))) citation("ggplot2")
+
+if(nchar(system.file(package="lattice"))) citation("ggpubr")
+
+if(nchar(system.file(package="lattice"))) citation("jtools")
+
+if(nchar(system.file(package="lattice"))) citation("knitr")
+
+if(nchar(system.file(package="lattice"))) citation("latexpdf")
+
+if(nchar(system.file(package="lattice"))) citation("lme4")
+
+if(nchar(system.file(package="lattice"))) citation("MuMIn")
+
+if(nchar(system.file(package="lattice"))) citation("pander")
+
+if(nchar(system.file(package="lattice"))) citation("rmarkdown")
+
+if(nchar(system.file(package="lattice"))) citation("rsq")
+
+if(nchar(system.file(package="lattice"))) citation("SSN")
+
+if(nchar(system.file(package="lattice"))) citation("tidyverse")
+
+if(nchar(system.file(package="lattice"))) citation("yaml")
+
+
+#The detection limit information from EPA
+#https://www.epa.gov/sites/production/files/2015-08/documents/method_1631e_2002.pdf
+
+#https://cmdlinetips.com/2018/03/how-to-split-text-in-a-column-in-data-frame-in-r/
+
+
+###Model Averaging
+
+# Model averaging is used for averaging the model parameters (slope and intercept) of more than one closely related model (Burnham, 2002). Out of a total of 9 different HUC 8 subbasins where samples were collected, the following three 3 HUC 8 subbasins were selected for model averaging: Upper Willamette, Middle Willamette, and Clackamas.The three selected HUC 8's all had an adjusted R-squared value greater than 0.5 and more than 8 sample sizes. An OLS model was done individually for all 3 selected HUC 8's. The average slope, intercept, and standard eror were calculated based on individual OLS results and the same general OLS equation within the OLS Model section was used. 
+
+
+
+
+```
+
+
+#References
+
+Conroy, M. J., & Peterson, J. T. (2013). Decision Making in Natural Resource Management: A Structured, Adaptive Approach. Hoboken: Wiley-Blackwell.
+
+Eckley, C. S., & Branfireun, B. (2008). Mercury mobilization in urban stormwater runoff. Science of the Total Environment, 403(1-3), 164-177.
+
+Eckley, C. S., & Branfireun, B. (2009). Simulated rain events on an urban roadway to understand the dynamics of mercury mobilization in stormwater runoff. Water research, 43(15), 3635-3646.
+
+Environmental Protection Agency. (2002). Method 1631, Revision E: Mercury in Water by Oxidation, Purge and Trap, and Cold Vapor Atomic Fluorescence Spectrometry. Retrieved from https://www.epa.gov/sites/production/files/2015-08/documents/method_1631e_2002.pdf
+
+Hajduk. G.K. (2017). Introduction to linear mixed models. Retrieved from https://ourcodingclub.github.io/2017/03/15/mixed-models.html
+
+Helsel, D. R. (1990). Less than obvious-statistical treatment of data below the detection limit. Environmental Science & Technology, 24(12), 1766-1774.
+
+Helsel, D. R. (2005). Nondetects and data analysis. Statistics for censored environmental data. Wiley-Interscience.
+
+Helwig, N.E. (2017). Linear-Mixed Effects Regression. Retrieved from http://users.stat.umn.edu/~helwig/notes/lmer-Notes.pdf
+
+Hope, B. K. (2006). An assessment of anthropogenic source impacts on mercury cycling in the Willamette Basin, Oregon, USA. Science of the total environment, 356(1-3), 165-191.
+
+Hope, B. K., & Rubin, J. R. (2005). Mercury levels and relationships in water, sediment, and fish tissue in the Willamette Basin, Oregon. Archives of environmental contamination and toxicology, 48(3), 367-380.
+
+Interstate Technology and Regulatory Council (ITRC). Groundwater Statistics and Monitoring Compliance: Statistical Tools for the Project Life Cycle. Retrieved from https://www.itrcweb.org/gsmc-1/Content/Resources/GSMCPDF.pdf
+
+Johnson, A. (2007). Quality Assurance Project Plan: Yakima River Chlorinated Pesticides, PCBs,Suspended Sediment, and Turbidity Total Maximum Daily Load Study 
+
+R Core Team (2018). R: A language and environment for statistical computing. R Foundation for Statistical. Computing, Vienna, Austria. URL https://www.R-project.org/.
+
+State of Oregon: Oregon Department of Environmental Quality. (2002). Upper Klamath Lake Drainage TMDL and Water Quality Management Plan (WQMP)
+
+State of Oregon: Oregon Department of Environmental Quality. (2006). Willamette Basin Mercury TMDL
+
+State of Oregon: Oregon Department of Environmental Quality. (2019). Revised Willamette Basin Mercury TMDL: Draft for Public Comment
+
+TetraTech.(2018). Draft Memorandum: Potential THg Surrogate Measures. 
+
+TetraTech. (2019). Mercury TMDL Development for the Willamette River Basin (Oregon) – Technical Support Document (PUBLIC REVIEW DRAFT).
+
+
+#R Packages Used
+
+captioner: Letaw Alathea (2015). captioner: Numbers Figures and Creates Simple Captions. R package version 2.2.3.
+https://CRAN.R-project.org/package=captioner
+
+dplyr: Hadley Wickham, Romain François, Lionel Henry and Kirill Müller (2018). dplyr: A Grammar of Data Manipulation. R package
+version 0.7.6. https://CRAN.R-project.org/package=dplyr
+
+ggplot2: H. Wickham. ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York, 2016.
+
+ggpubr: Alboukadel Kassambara (2018). ggpubr: 'ggplot2' Based Publication Ready Plots. R package version 0.2.
+https://CRAN.R-project.org/package=ggpubr
+
+jtools: Long JA (2018). _jtools: Analysis and Presentation of Social Scientific Data_. R package version 1.1.0, <URL:
+https://cran.r-project.org/package=jtools>.
+
+knitr: Yihui Xie (2018). knitr: A General-Purpose Package for Dynamic Report Generation in R. R package version 1.21.
+
+latexpdf: Tim Bergsma (2018). latexpdf: Convert Tables to PDF or PNG. R package version 0.1.6.https://CRAN.R-project.org/package=latexpdf
+
+lme4: Douglas Bates, Martin Maechler, Ben Bolker, Steve Walker (2015). Fitting Linear Mixed-Effects   Models Using lme4. Journal of Statistical Software, 67(1), 1-48. doi:10.18637/jss.v067.i01.
+
+MuMIn: Kamil Barton (2018). MuMIn: Multi-Model Inference. R package version 1.42.1. https://CRAN.R-project.org/package=MuMIn
+
+rmarkdown: JJ Allaire, Yihui Xie, Jonathan McPherson, Javier Luraschi, Kevin Ushey, Aron Atkins, Hadley Wickham, Joe Cheng and Winston
+Chang (2018). rmarkdown: Dynamic Documents for R. R package version 1.10. https://CRAN.R-project.org/package=rmarkdown
+
+rsq: Dabao Zhang (2018). rsq: R-Squared and Related Measures. R package version 1.1. https://CRAN.R-project.org/package=rsq
+
+SSN: Ver Hoef, J. M. and Peterson, E. E. (2010) A moving average approach for spatial statistical models of stream networks (with discussion). Journal of the American Statistical Association 105:6-18. DOI: 10.1198/jasa.2009.ap08248
+
+tidyverse: Hadley Wickham (2017). tidyverse: Easily Install and Load the 'Tidyverse'. R package version 1.2.1. https://CRAN.R-project.org/package=tidyverse
+
+yaml: Jeremy Stephens, Kirill Simonov, Yihui Xie, Zhuoer Dong, Hadley Wickham, Jeffrey Horner, reikoch, Will Beasley, BrendanO'Connor and Gregory R. Warnes (2018). yaml: Methods to Convert R Data to YAML and Back. R package version 2.2.0.
+https://CRAN.R-project.org/package=yaml
